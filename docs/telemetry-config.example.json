@@ -1,0 +1,6 @@
+{
+  "endpoint": "http://localhost:3000/api/feedback",
+  "token": "REPLACE_WITH_TELEMETRY_INGEST_TOKEN",
+  "timeout_seconds": 10,
+  "export_dir": "C:/Users/HP/.codex/telemetry_exports"
+}

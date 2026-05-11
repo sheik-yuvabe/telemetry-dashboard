@@ -1,0 +1,6 @@
+{
+  "endpoint": "http://localhost:3000/api/feedback",
+  "token": "dry-run-token",
+  "timeout_seconds": 10,
+  "export_dir": "f:/Yuvabe/Yuvabe Education/ai fsd course telemetry/telemetry-dashboard/.codex-temp"
+}
