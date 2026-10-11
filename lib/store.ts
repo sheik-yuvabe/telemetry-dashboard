@@ -12,6 +12,9 @@ import {
 } from "./types";
 
 let inMemoryReports = [...seededReports];
+export function getDemoReports(batchId: string) {
+  return inMemoryReports.filter((report) => (report.batchId ?? "batch-1") === batchId);
+}
 const inMemoryFingerprints = new Map(
   seededReports.map((report) => [createReportFingerprint(report), report]),
 );
@@ -31,7 +34,7 @@ export function hasSupabaseConfig() {
   return Boolean(getSupabaseConfig());
 }
 
-async function supabaseFetch(path: string, init?: RequestInit) {
+export async function supabaseFetch(path: string, init?: RequestInit) {
   const config = getSupabaseConfig();
 
   if (!config) {
@@ -46,6 +49,7 @@ async function supabaseFetch(path: string, init?: RequestInit) {
       ...(init?.headers ?? {}),
     },
     cache: "no-store",
+    signal: AbortSignal.timeout(15000),
   });
 }
 
@@ -63,8 +67,10 @@ async function supabaseRequest<T>(path: string, init?: RequestInit) {
   return (await response.json()) as T;
 }
 
-function mapRowToReport(row: RawTelemetryRow): TelemetryReport {
+export function mapRowToReport(row: RawTelemetryRow): TelemetryReport {
   return {
+    batchId: row.batch_id ?? "batch-1",
+    projectId: row.project_id ?? null,
     id: row.id,
     studentId: row.student_id,
     studentName: row.student_name,
@@ -90,6 +96,8 @@ function mapRowToReport(row: RawTelemetryRow): TelemetryReport {
 
 function mapReportToRow(report: TelemetryReport): RawTelemetryRow {
   return {
+    batch_id: report.batchId ?? "batch-1",
+    project_id: report.projectId ?? null,
     id: report.id,
     student_id: report.studentId,
     student_name: report.studentName,
@@ -113,58 +121,58 @@ function mapReportToRow(report: TelemetryReport): RawTelemetryRow {
   };
 }
 
-export async function listReportDates() {
+export async function listReportDates(batchId = "batch-1") {
   if (!hasSupabaseConfig()) {
-    return Array.from(new Set(inMemoryReports.map((report) => report.reportDate))).sort(
+    return Array.from(new Set(inMemoryReports.filter((report) => (report.batchId ?? "batch-1") === batchId).map((report) => report.reportDate))).sort(
       (left, right) => right.localeCompare(left),
     );
   }
 
   const rows = await supabaseRequest<Array<{ report_date: string }>>(
-    "/rest/v1/telemetry_reports?select=report_date&order=report_date.desc",
+    `/rest/v1/telemetry_reports?select=report_date&batch_id=eq.${encodeURIComponent(batchId)}&order=report_date.desc`,
   );
 
   return Array.from(new Set(rows.map((row) => row.report_date)));
 }
 
-export async function getReportsByDate(reportDate: string) {
+export async function getReportsByDate(reportDate: string, batchId = "batch-1") {
   if (!hasSupabaseConfig()) {
     return inMemoryReports
-      .filter((report) => report.reportDate === reportDate)
+      .filter((report) => report.reportDate === reportDate && (report.batchId ?? "batch-1") === batchId)
       .sort((left, right) => left.studentName.localeCompare(right.studentName));
   }
 
   const rows = await supabaseRequest<RawTelemetryRow[]>(
-    `/rest/v1/telemetry_reports?select=*&report_date=eq.${reportDate}&order=student_name.asc`,
+    `/rest/v1/telemetry_reports?select=*&report_date=eq.${encodeURIComponent(reportDate)}&batch_id=eq.${encodeURIComponent(batchId)}&order=student_name.asc,created_at.desc,id.desc`,
   );
 
   return rows.map(mapRowToReport);
 }
 
-export async function findLatestReportForStudent(studentId: string) {
+export async function findLatestReportForStudent(studentId: string, batchId = "batch-1") {
   if (!hasSupabaseConfig()) {
     return [...inMemoryReports]
-      .filter((report) => report.studentId === studentId)
-      .sort((left, right) => right.reportDate.localeCompare(left.reportDate))[0];
+      .filter((report) => report.studentId === studentId && (report.batchId ?? "batch-1") === batchId)
+      .sort((left, right) => right.reportDate.localeCompare(left.reportDate) || right.createdAt.localeCompare(left.createdAt) || right.id.localeCompare(left.id))[0];
   }
 
   const rows = await supabaseRequest<RawTelemetryRow[]>(
-    `/rest/v1/telemetry_reports?select=*&student_id=eq.${studentId}&order=report_date.desc&limit=1`,
+    `/rest/v1/telemetry_reports?select=*&student_id=eq.${encodeURIComponent(studentId)}&batch_id=eq.${encodeURIComponent(batchId)}&order=report_date.desc,created_at.desc,id.desc&limit=1`,
   );
 
   return rows[0] ? mapRowToReport(rows[0]) : null;
 }
 
-export async function getStudentProgress(studentId: string): Promise<DailyProgressPoint[]> {
+export async function getStudentProgress(studentId: string, batchId = "batch-1"): Promise<DailyProgressPoint[]> {
   const reports = hasSupabaseConfig()
     ? (
         await supabaseRequest<RawTelemetryRow[]>(
-          `/rest/v1/telemetry_reports?select=*&student_id=eq.${studentId}&order=report_date.asc`,
+          `/rest/v1/telemetry_reports?select=*&student_id=eq.${encodeURIComponent(studentId)}&batch_id=eq.${encodeURIComponent(batchId)}&order=report_date.asc,created_at.asc,id.asc`,
         )
       ).map(mapRowToReport)
     : [...inMemoryReports]
-        .filter((report) => report.studentId === studentId)
-        .sort((left, right) => left.reportDate.localeCompare(right.reportDate));
+        .filter((report) => report.studentId === studentId && (report.batchId ?? "batch-1") === batchId)
+        .sort((left, right) => left.reportDate.localeCompare(right.reportDate) || left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id));
 
   return reports.map((report) => ({
     studentId: report.studentId,
@@ -181,6 +189,8 @@ export async function getStudentProgress(studentId: string): Promise<DailyProgre
 
 function createReportFromPayload(payload: FeedbackPayload): TelemetryReport {
   return {
+    batchId: payload.batchId ?? "batch-1",
+    projectId: payload.projectId ?? null,
     id: crypto.randomUUID(),
     studentId: payload.studentId,
     studentName: payload.studentName,
@@ -206,6 +216,8 @@ function createReportFromPayload(payload: FeedbackPayload): TelemetryReport {
 
 function createReportFingerprint(payload: FeedbackPayload) {
   const normalizedPayload = {
+    batchId: payload.batchId ?? "batch-1",
+    projectId: payload.projectId ?? null,
     studentId: payload.studentId,
     studentName: payload.studentName,
     reportDate: payload.reportDate,

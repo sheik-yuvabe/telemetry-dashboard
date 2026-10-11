@@ -18,6 +18,8 @@ export type GapCategory =
   | "git-workflow";
 
 export type TelemetryReport = {
+  batchId?: string;
+  projectId?: string | null;
   id: string;
   studentId: string;
   studentName: string;
@@ -48,6 +50,8 @@ export type CreateFeedbackResult = {
 };
 
 export type RawTelemetryRow = {
+  batch_id?: string;
+  project_id?: string | null;
   id: string;
   student_id: string;
   student_name: string;
@@ -121,19 +125,19 @@ const allowedTriggers = new Set<TriggerReason>([
 ]);
 
 function isIsoDate(value: string) {
-  return /^\d{4}-\d{2}-\d{2}$/.test(value);
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value;
 }
 
 function parseNumberLike(value: unknown, fieldName: string) {
   if (typeof value === "number" && !Number.isNaN(value)) {
-    return Math.round(value);
+    if (Number.isSafeInteger(value)) return value;
   }
 
   if (typeof value === "string" && value.trim().length > 0) {
     const parsed = Number(value.trim());
 
-    if (!Number.isNaN(parsed)) {
-      return Math.round(parsed);
+    if (Number.isSafeInteger(parsed)) {
+      return parsed;
     }
   }
 
@@ -171,8 +175,8 @@ function parseOptionalString(value: unknown) {
 }
 
 function parseStringArray(value: unknown, fieldName: string) {
-  if (!Array.isArray(value) || value.length === 0) {
-    throw new Error(`${fieldName} must be a non-empty array of strings.`);
+  if (!Array.isArray(value) || value.length > 30) {
+    throw new Error(`${fieldName} must be an array of at most 30 strings.`);
   }
 
   const parsed = value.map((item) => parseString(item, fieldName));
@@ -190,11 +194,7 @@ function parseOptionalBoundedInteger(
     return null;
   }
 
-  try {
-    return parseInteger(value, fieldName, min, max);
-  } catch {
-    return null;
-  }
+  return parseInteger(value, fieldName, min, max);
 }
 
 function inferCurriculumPosition(...paths: Array<string | null>) {
@@ -221,7 +221,7 @@ function inferCurriculumPosition(...paths: Array<string | null>) {
 
 function parseRepeatedTopicSignals(value: unknown) {
   if (Array.isArray(value)) {
-    return value.length;
+    return parseInteger(value.length, "repeatedTopicSignals", 0, 20);
   }
 
   return parseInteger(value, "repeatedTopicSignals", 0, 20);
@@ -300,12 +300,14 @@ export function parseFeedbackPayload(value: unknown): FeedbackPayload {
   }
 
   return {
+    batchId: parseString(payload.batchId ?? "batch-1", "batchId"),
+    projectId: parseOptionalString(payload.projectId),
     studentId: parseString(payload.studentId, "studentId"),
     studentName: parseString(payload.studentName, "studentName"),
     reportDate,
-    month,
-    week,
-    day,
+    month: parseInteger(month, "month", 1, 12),
+    week: parseInteger(week, "week", 1, 5),
+    day: parseInteger(day, "day", 1, 7),
     lessonPath,
     assignmentPath,
     lessonConfidence: lessonConfidence as LessonConfidence,

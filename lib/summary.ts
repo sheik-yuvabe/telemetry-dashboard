@@ -61,6 +61,12 @@ export function buildDailySummary(
   reports: TelemetryReport[],
   reportDate: string,
 ): DailySummary {
+  const latestByStudent = new Map<string, TelemetryReport>();
+  for (const report of [...reports].sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id))) {
+    const key = `${report.batchId ?? "batch-1"}:${report.studentId}`;
+    if (!latestByStudent.has(key)) latestByStudent.set(key, report);
+  }
+  reports = [...latestByStudent.values()];
   const totalStudents = reports.length;
   const statusBreakdown = {
     clear: reports.filter((report) => report.understandingStatus === "clear").length,
@@ -90,6 +96,7 @@ export function buildDailySummary(
   }
 
   const topGaps = [...gapCounts.entries()]
+    .filter(([, count]) => count >= 2)
     .sort((left, right) => right[1] - left[1])
     .slice(0, 4)
     .map(([gap, count]) => ({
@@ -99,6 +106,7 @@ export function buildDailySummary(
     }));
 
   const priorityStudents = [...reports]
+    .filter((report) => report.understandingStatus !== "clear" || report.progressScore < 40 || report.confidenceScore < 40)
     .sort((left, right) => {
       const leftRisk =
         (left.understandingStatus === "stuck"
@@ -123,7 +131,7 @@ export function buildDailySummary(
     })
     .slice(0, 3);
 
-  const recommendedActions = [
+  const recommendedActions = totalStudents === 0 ? ["No reports are available for this day. There is not enough evidence to recommend a teaching change."] : [
     topGaps[0]
       ? `Open tomorrow with a short targeted clinic on ${topGaps[0].label.toLowerCase()}.`
       : "No recurring gap was detected today, so keep the current pacing.",

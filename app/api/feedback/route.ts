@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { verifyIngestToken } from "@/lib/auth";
 import { createFeedbackReport } from "@/lib/store";
 import { parseFeedbackPayload } from "@/lib/types";
+import { validateReportEnrollment } from "@/lib/dashboard-data";
 
 export async function POST(request: Request) {
   try {
@@ -19,6 +20,7 @@ export async function POST(request: Request) {
 
     const body = await request.json();
     const payload = parseFeedbackPayload(body);
+    await validateReportEnrollment(payload);
     const result = await createFeedbackReport(payload);
 
     return NextResponse.json(

@@ -1,5 +1,17 @@
 # Telemetry Mentor Dashboard
 
+## Batch 2 workspace
+
+The [student history and summary guide](docs/STUDENT-HISTORY-AND-SUMMARIES.md) covers the implemented report timeline, calculated overview, and optional saved Gemini summaries with source links and mentor review. Live use requires the summary migration and backend credentials described there.
+
+The cross-platform [Flutter client](docs/FLUTTER-CLIENT.md) is in `mobile/`, with Android, iOS, and web projects. Both clients use the purple/yellow brand and light/dark/system themes. Read the [identity and token tracking design](docs/IDENTITY-AND-TOKEN-TRACKING.md) for per-student attribution on separate computers sharing an account.
+
+Follow the [live pilot guide](docs/LIVE-PILOT.md) to prepare the combined database migration, check Supabase readiness, and connect the website and a physical Android phone over USB. See [pilot verification](docs/PILOT-VERIFICATION.md) for completed checks and remaining prerequisites.
+
+The UI now separates batches and includes student projects, per-student token usage, and shared accounts with 2 or 4 seats. See [Batch 2 setup](docs/BATCH-2-SETUP.md) for the migration, roster setup, and measured usage ingestion contract. The [logic review](docs/LOGIC-REVIEW.md) preserves all 38 original findings.
+
+Preview the labeled sample design at `/?batch=batch-2&demo=1`. Real usage requires an identified session data source; account totals are never divided among students.
+
 This app is the first working version of the mentor dashboard for the AI-assisted programming course telemetry workflow.
 
 It is designed around 4 API routes:

@@ -7,12 +7,14 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const date = ensureDateParam(searchParams.get("date"));
-    const reports = await getReportsByDate(date);
+    const batchId = searchParams.get("batch") || "batch-2";
+    const reports = await getReportsByDate(date, batchId);
     const summary = buildDailySummary(reports, date);
 
     return NextResponse.json({
       ok: true,
       date,
+      batchId,
       summary,
     });
   } catch (error) {

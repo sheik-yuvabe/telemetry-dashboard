@@ -7,10 +7,11 @@ type RouteContext = {
   }>;
 };
 
-export async function GET(_: Request, context: RouteContext) {
+export async function GET(request: Request, context: RouteContext) {
   const { id } = await context.params;
-  const progress = await getStudentProgress(id);
-  const latestReport = await findLatestReportForStudent(id);
+  const batchId = new URL(request.url).searchParams.get("batch") || "batch-2";
+  const progress = await getStudentProgress(id, batchId);
+  const latestReport = await findLatestReportForStudent(id, batchId);
 
   if (!latestReport) {
     return NextResponse.json(
@@ -24,6 +25,7 @@ export async function GET(_: Request, context: RouteContext) {
 
   return NextResponse.json({
     ok: true,
+    batchId,
     student: {
       id: latestReport.studentId,
       name: latestReport.studentName,
