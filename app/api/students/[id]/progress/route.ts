@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { findLatestReportForStudent, getStudentProgress } from "@/lib/store";
+import { apiFailure, authorizeMentor, mentorHeaders } from '@/lib/mentor-api';
 
 type RouteContext = {
   params: Promise<{
@@ -8,6 +9,8 @@ type RouteContext = {
 };
 
 export async function GET(request: Request, context: RouteContext) {
+  try {
+  await authorizeMentor(request);
   const { id } = await context.params;
   const batchId = new URL(request.url).searchParams.get("batch") || "batch-2";
   const progress = await getStudentProgress(id, batchId);
@@ -32,5 +35,6 @@ export async function GET(request: Request, context: RouteContext) {
     },
     latestReport,
     progress,
-  });
+  }, { headers: mentorHeaders(request) });
+  } catch (error) { return apiFailure(error, request); }
 }

@@ -25,7 +25,7 @@ Future<void> boot(
   await tester.pumpWidget(
     RepaintBoundary(
       key: const Key('preview'),
-      child: MentorApp(preferences: prefs),
+      child: MentorApp(preferences: prefs, sampleMode: true),
     ),
   );
   // Asset decoding may use an isolate; await the same refresh path in a real

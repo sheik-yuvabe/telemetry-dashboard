@@ -1,5 +1,9 @@
 # Telemetry Mentor Dashboard
 
+## Mentor sign-in
+
+Both the website and Flutter app use Supabase Auth with remembered sessions. Live student data requires an administrator-approved mentor account. See [account setup and authentication](docs/MENTOR-AUTH.md).
+
 ## Batch 2 workspace
 
 The [student history and summary guide](docs/STUDENT-HISTORY-AND-SUMMARIES.md) covers the implemented report timeline, calculated overview, and optional saved Gemini summaries with source links and mentor review. Live use requires the summary migration and backend credentials described there.
@@ -23,7 +27,7 @@ It is designed around 4 API routes:
 
 The app works in two modes:
 
-- Demo mode: seeded sample telemetry is used when Supabase environment variables are missing.
+- Demo mode: open `/?demo=1` for explicitly labelled sample telemetry.
 - Live mode: API routes read and write summarized telemetry reports in Supabase.
 
 ## Stack
@@ -62,7 +66,7 @@ SUPABASE_SERVICE_ROLE_KEY=
 TELEMETRY_INGEST_TOKEN=
 ```
 
-If these values are missing, the app falls back to demo data.
+Live access requires Supabase configuration and a mentor account. Use `/?demo=1` to preview sample data.
 If `TELEMETRY_INGEST_TOKEN` is set, `POST /api/feedback` requires `Authorization: Bearer <token>`.
 
 ## Feedback payload

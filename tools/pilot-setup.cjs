@@ -1,7 +1,6 @@
 // Run from the repository root. Credentials are read locally, never printed.
 const fs = require('node:fs');
 const path = require('node:path');
-const crypto = require('node:crypto');
 const { spawnSync } = require('node:child_process');
 const root = path.resolve(__dirname, '..');
 
@@ -53,16 +52,6 @@ select batch_id, count(*) as preserved_reports from public.telemetry_reports gro
 
 function prepare() {
   fs.writeFileSync(path.join(root, 'supabase', 'pilot-setup.sql'), migrationSql());
-  const envPath = path.join(root, '.env.local');
-  let envText = fs.existsSync(envPath) ? fs.readFileSync(envPath, 'utf8') : '';
-  if (!process.env.MENTOR_READ_TOKEN) {
-    const line = `MENTOR_READ_TOKEN=${crypto.randomBytes(32).toString('hex')}`;
-    envText = /^\s*MENTOR_READ_TOKEN\s*=/m.test(envText)
-      ? envText.replace(/^\s*MENTOR_READ_TOKEN\s*=.*$/m, line)
-      : `${envText.trimEnd()}\n${line}\n`;
-    fs.writeFileSync(envPath, envText);
-    console.log('Created a local mentor token in .env.local (value hidden). Restart the backend if needed.');
-  } else console.log('Existing mentor token preserved.');
   console.log('Prepared supabase/pilot-setup.sql. No database changes made.');
 }
 
@@ -86,7 +75,7 @@ async function check() {
     if (response.ok) console.log(`${table}: ready (${response.headers.get('content-range')?.split('/')[1] ?? '?'} rows)`);
     else { ready = false; console.log(`${table}: NOT READY (HTTP ${response.status}, ${payload.code || 'unknown'})`); }
   }
-  for (const name of ['MENTOR_READ_TOKEN', 'TELEMETRY_INGEST_TOKEN', 'SUPABASE_DB_URL', 'GEMINI_API_KEY', 'GEMINI_MODEL']) {
+  for (const name of ['TELEMETRY_INGEST_TOKEN', 'SUPABASE_DB_URL', 'GEMINI_API_KEY', 'GEMINI_MODEL']) {
     console.log(`${name}: ${process.env[name] ? 'configured' : 'not configured'}`);
   }
   console.log(ready ? 'Required table columns are available. Complete the roster and authenticated app smoke test next.' : 'Database migration is still required.');

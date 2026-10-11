@@ -35,22 +35,20 @@ The iOS project is generated under `mobile/ios`. Building, signing, and device t
 - Student profiles open as native scrollable sheets.
 - **Open full history** opens a dedicated student screen with Overview, Reports, Projects, and Usage tabs. Reports can be filtered by dates, project, lesson, and reported status. Optional saved Gemini summaries include source-report links and a mentor-reviewed marker; see `STUDENT-HISTORY-AND-SUMMARIES.md` for backend setup.
 - Date range filters, pull-to-refresh, and copy-to-clipboard CSV export.
-- Explicit sample-data mode, missing-measurement states, loading/errors, and backend connection settings.
+- Explicit sample-data mode, missing-measurement states, loading/errors, and remembered mentor sign-in.
 
 ## Connect live data
 
-1. Follow `BATCH-2-SETUP.md` to prepare the database and roster.
-2. Set `MENTOR_READ_TOKEN` on the backend. This is a separate read credential; do not use the ingest token or Supabase service-role key in the app.
-3. Configure `MENTOR_ALLOWED_ORIGINS` as a comma-separated list of Flutter web origins. Development defaults include `http://localhost:8080` and `http://127.0.0.1:8080`.
-4. In the app, open **Workspace → Advanced connection setup**, enter the HTTPS backend URL as the workspace address and the mentor read token as the access code, then choose **Connect to live reports**. The token stays in memory for this app session and is not saved in preferences or compiled into the app.
+1. Prepare the database and real roster using `BATCH-2-SETUP.md`.
+2. Create an approved mentor account using [MENTOR-AUTH.md](MENTOR-AUTH.md).
+3. Open the app and sign in with email and password. It connects to `https://aipbc.vercel.app` automatically and restores the saved session on reopening. **Account** provides password changes and sign out.
+4. For separately hosted Flutter web, allow its exact origin in the backend's `MENTOR_ALLOWED_ORIGINS`. Development defaults include `http://localhost:8080` and `http://127.0.0.1:8080`.
 
-Gemini keys are configured on the backend, not on this page. See [backend environment setup](BACKEND-ENVIRONMENT.md) for local and Vercel instructions.
+Gemini keys belong in the backend environment. See [backend setup](BACKEND-ENVIRONMENT.md).
 
-The app calls `GET /api/workspace?batch=batch-2`. `?demo=1` is an unauthenticated sample endpoint; real data requires the read token and configured Supabase. A live connection failure does not silently switch to sample records.
+Live endpoints require a valid Supabase mentor session. Explicit `?demo=1` endpoints return only sample records; live connection failures never silently become sample data.
 
-Local web can use `http://127.0.0.1:3000`. An Android emulator reaches the host through `10.0.2.2`; use HTTPS for production/device deployments. Native builds have no browser CORS requirement. The generated release Android manifest includes Internet permission.
-
-The read token is a POC access mechanism, not per-mentor sign-in. Full mentor accounts and scoped authorization are still part of the recorded logic review. The existing Next.js pages/read routes retain their prior access model.
+For development only, override the server when building or running: `--dart-define=API_BASE_URL=http://127.0.0.1:3000`. An Android emulator uses `http://10.0.2.2:3000`; a USB phone can use localhost with `adb reverse`. Production uses the default HTTPS address without any setup form. Never compile keys into build defines.
 
 ## Verification commands
 
@@ -70,7 +68,7 @@ See `IDENTITY-AND-TOKEN-TRACKING.md` for the separate desktop collection archite
 
 Verified on Windows with Flutter 3.41.7 / Dart 3.11.5:
 
-- Static analysis reports no issues; all six Flutter tests pass.
+- Static analysis reports no issues; all eleven Flutter tests pass.
 - Phone and desktop widget captures were inspected in light/dark themes.
 - Release web output is in `mobile/build/web`; the development Android APK is in `mobile/build/app/outputs/flutter-apk/app-debug.apk`.
 - Backend regression tests, ESLint, TypeScript checking, and the Next.js build pass.
@@ -78,4 +76,4 @@ Verified on Windows with Flutter 3.41.7 / Dart 3.11.5:
 
 An Android CPH2729 phone was tested on 2026-10-11: APK installation, cold launch, dark sample dashboard, student navigation, seven-report/six-day history, same-day report grouping, and original-report expansion passed. USB connection to the authenticated backend correctly showed the live database setup message. See [pilot verification](PILOT-VERIFICATION.md) and the [live pilot guide](LIVE-PILOT.md).
 
-The iOS target has not been tested. The user has applied the live database migration, and schema/count checks confirm the new tables and preserved reports. No student desktop collector is connected. Automatic mobile connection and remembered mentor sign-in remain unfinished; the current connection page is a pilot setup mechanism.
+The iOS target has not been tested. The user has applied the live database migration, and schema/count checks confirm the new tables and preserved reports. No student desktop collector is connected. Automatic connection and remembered sign-in are implemented; see MENTOR-AUTH.md.

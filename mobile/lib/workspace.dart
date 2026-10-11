@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/services.dart';
-import 'package:http/http.dart' as http;
+import 'mentor_session.dart';
 
 typedef Record = Map<String, dynamic>;
 List<Record> records(dynamic value) => (value as List? ?? [])
@@ -94,11 +94,7 @@ class Workspace {
 
 class WorkspaceRepository {
   Workspace? _sample;
-  Future<Workspace> load(
-    String batch, {
-    String? endpoint,
-    String? token,
-  }) async {
+  Future<Workspace> load(String batch, {String? endpoint}) async {
     if (endpoint == null || endpoint.isEmpty) {
       return _sample ??= Workspace(
         jsonDecode(await rootBundle.loadString('assets/sample-workspace.json')),
@@ -121,9 +117,14 @@ class WorkspaceRepository {
     final uri = base
         .resolve('/api/workspace')
         .replace(queryParameters: {'batch': batch});
-    final response = await http
-        .get(uri, headers: {'Authorization': 'Bearer ${token ?? ''}'})
-        .timeout(const Duration(seconds: 20));
+    final response = await mentorSession.request('${uri.path}?${uri.query}');
+    if (!(response.headers['content-type'] ?? '').contains(
+      'application/json',
+    )) {
+      throw Exception(
+        'The server needs the latest update. Please try again later.',
+      );
+    }
     final body = jsonDecode(response.body) as Record;
     if (response.statusCode != 200 || body['ok'] != true) {
       throw Exception(body['message'] ?? 'Workspace request failed.');

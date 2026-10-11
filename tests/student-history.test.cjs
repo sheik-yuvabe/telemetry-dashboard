@@ -47,9 +47,7 @@ async function run() {
   assert.throws(() => validateSummary({ ...content, overview: [{ text: 'Uncited', reportIds: [] }] }, new Set()), /supporting reports/);
   assert.throws(() => historyScope(new Request('https://local.test?batch=batch-2&from=2026-02-30'), 'b2-1'), /valid date/);
   assert.throws(() => historyScope(new Request('https://local.test?from=2026-10-10&through=2026-10-01'), 'b2-1'), /Start date/);
-  process.env.MENTOR_READ_TOKEN = 'test-mentor';
-  assert.throws(() => authorizeMentor(new Request('https://local.test')), /valid mentor/);
-  authorizeMentor(new Request('https://local.test', { headers: { Authorization: 'Bearer test-mentor' } }));
+  await assert.rejects(() => authorizeMentor(new Request('https://local.test')), /sign in/);
 
   // Fake provider + persistence: no external requests, real keys, or student data.
   process.env.SUPABASE_URL = 'https://storage.test';

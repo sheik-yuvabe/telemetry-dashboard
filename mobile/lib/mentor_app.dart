@@ -4,20 +4,29 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'brand.dart';
 import 'workspace.dart';
 import 'student_history.dart';
-import 'workspace_connection.dart';
+import 'mentor_session.dart';
+import 'mentor_sign_in.dart';
 
 class MentorApp extends StatefulWidget {
   final SharedPreferences preferences;
-  const MentorApp({super.key, required this.preferences});
+  final bool sampleMode;
+  const MentorApp({
+    super.key,
+    required this.preferences,
+    this.sampleMode = false,
+  });
   @override
   State<MentorApp> createState() => _MentorAppState();
 }
 
 class _MentorAppState extends State<MentorApp> {
   late ThemeMode mode;
+  late bool sample;
   @override
   void initState() {
     super.initState();
+    sample = widget.sampleMode;
+    if (!sample) mentorSession.restore();
     final saved = widget.preferences.getString('theme') ?? 'system';
     mode = ThemeMode.values.firstWhere(
       (m) => m.name == saved,
@@ -31,30 +40,82 @@ class _MentorAppState extends State<MentorApp> {
   }
 
   @override
-  Widget build(BuildContext context) => MaterialApp(
-    title: 'Yuvabe Mentor',
-    debugShowCheckedModeBanner: false,
-    theme: brandTheme(Brightness.light),
-    darkTheme: brandTheme(Brightness.dark),
-    themeMode: mode,
-    onGenerateRoute: (settings) {
-      final uri = Uri.tryParse(settings.name ?? '');
-      if (uri != null &&
-          uri.pathSegments.length == 2 &&
-          uri.pathSegments.first == 'students') {
-        return MaterialPageRoute<void>(
-          settings: settings,
-          builder: (_) => StudentHistoryEntry(
-            batch: uri.queryParameters['batch'] ?? 'batch-1',
-            studentId: uri.pathSegments[1],
-            sample: uri.queryParameters['demo'] == '1',
-          ),
-        );
-      }
-      return null;
-    },
-    home: MentorHome(themeMode: mode, onTheme: changeTheme),
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: mentorSession,
+    builder: (context, _) => MaterialApp(
+      key: ValueKey(
+        sample
+            ? 'sample'
+            : mentorSession.signedIn
+            ? 'mentor'
+            : 'signed-out',
+      ),
+      title: 'Yuvabe Mentor',
+      debugShowCheckedModeBanner: false,
+      theme: brandTheme(Brightness.light),
+      darkTheme: brandTheme(Brightness.dark),
+      themeMode: mode,
+      onGenerateRoute: (settings) {
+        final uri = Uri.tryParse(settings.name ?? '');
+        if (uri != null &&
+            uri.pathSegments.length == 2 &&
+            uri.pathSegments.first == 'students') {
+          return MaterialPageRoute<void>(
+            settings: settings,
+            builder: (_) => accessGate(
+              StudentHistoryEntry(
+                batch: uri.queryParameters['batch'] ?? 'batch-1',
+                studentId: uri.pathSegments[1],
+                sample: uri.queryParameters['demo'] == '1',
+              ),
+            ),
+          );
+        }
+        return null;
+      },
+      home: accessGate(
+        MentorHome(
+          themeMode: mode,
+          onTheme: changeTheme,
+          sample: sample,
+          onLeaveSample: () {
+            setState(() => sample = false);
+            mentorSession.restore();
+          },
+        ),
+      ),
+    ),
   );
+
+  Widget accessGate(Widget child) {
+    if (sample) return child;
+    if (!mentorSession.ready) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    if (mentorSession.restoreError != null) {
+      return Scaffold(
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(mentorSession.restoreError!),
+                FilledButton(
+                  onPressed: mentorSession.restore,
+                  child: const Text('Try again'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+    if (!mentorSession.signedIn) {
+      return MentorSignIn(onSample: () => setState(() => sample = true));
+    }
+    return child;
+  }
 }
 
 const destinations = [
@@ -75,7 +136,15 @@ const destinationIcons = [
 class MentorHome extends StatefulWidget {
   final ThemeMode themeMode;
   final ValueChanged<ThemeMode> onTheme;
-  const MentorHome({super.key, required this.themeMode, required this.onTheme});
+  final bool sample;
+  final VoidCallback onLeaveSample;
+  const MentorHome({
+    super.key,
+    required this.themeMode,
+    required this.onTheme,
+    required this.sample,
+    required this.onLeaveSample,
+  });
   @override
   State<MentorHome> createState() => _MentorHomeState();
 }
@@ -85,7 +154,7 @@ class _MentorHomeState extends State<MentorHome> {
   final searchController = TextEditingController();
   Workspace? data;
   String batch = 'batch-2', through = '2026-10-10', query = '', status = 'all';
-  String endpoint = const String.fromEnvironment('API_BASE_URL'), token = '';
+  String get endpoint => widget.sample ? '' : mentorSession.baseUrl;
   String? error;
   int tab = 0, requestId = 0;
   int? days;
@@ -110,11 +179,7 @@ class _MentorHomeState extends State<MentorHome> {
       data = null;
     });
     try {
-      final result = await repository.load(
-        batch,
-        endpoint: endpoint,
-        token: token,
-      );
+      final result = await repository.load(batch, endpoint: endpoint);
       if (!mounted || id != requestId) return;
       setState(() {
         data = result;
@@ -171,15 +236,13 @@ class _MentorHomeState extends State<MentorHome> {
       (batch == 'batch-2' ? 'Batch 2' : 'Batch 1');
 
   Future<void> connection() async {
-    final result = await Navigator.of(context).push<Map<String, String>>(
-      MaterialPageRoute(
-        builder: (_) => WorkspaceConnectionPage(endpoint: endpoint),
-      ),
-    );
-    if (!mounted || result == null) return;
-    endpoint = result['endpoint'] ?? '';
-    token = result['token'] ?? '';
-    await load(resetDate: true);
+    if (widget.sample) {
+      widget.onLeaveSample();
+      return;
+    }
+    await Navigator.of(
+      context,
+    ).push<void>(MaterialPageRoute(builder: (_) => const MentorAccountPage()));
   }
 
   Future<void> chooseDate() async {
@@ -294,7 +357,10 @@ class _MentorHomeState extends State<MentorHome> {
                 )
                 .toList(),
           ),
-          TextButton(onPressed: connection, child: const Text('Workspace')),
+          TextButton(
+            onPressed: connection,
+            child: Text(widget.sample ? 'Sign in' : 'Account'),
+          ),
           const SizedBox(width: 8),
         ],
       ),
@@ -365,7 +431,9 @@ class _MentorHomeState extends State<MentorHome> {
                             ),
                             TextButton(
                               onPressed: connection,
-                              child: const Text('Connection settings'),
+                              child: Text(
+                                widget.sample ? 'Sign in' : 'Account',
+                              ),
                             ),
                           ],
                         ),
@@ -1141,7 +1209,6 @@ class _MentorHomeState extends State<MentorHome> {
                       batch: batch,
                       studentId: id,
                       endpoint: endpoint,
-                      token: token,
                     ),
                   ),
                 );

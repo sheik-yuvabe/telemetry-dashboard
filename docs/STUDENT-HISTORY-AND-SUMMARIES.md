@@ -5,8 +5,8 @@ Implemented 2026-10-11 in Flutter and the Next.js client. Original report histor
 ## Enable live history and summaries
 
 1. Apply `supabase/batch-2-migration.sql` if the batch schema is not installed, then `supabase/student-summaries-migration.sql` in the Supabase SQL editor. The new migration creates summary storage, a per-student generation lease, and an index; it does not modify original reports.
-2. Set `MENTOR_READ_TOKEN` in the backend environment. Set `GEMINI_API_KEY` and `GEMINI_MODEL` to enable generation, using a billing-enabled Gemini project and a model supporting structured output. See `.env.example`. Restart the backend after changing its environment.
-3. In Flutter, connect using the backend URL and mentor read token, then open a student and choose **Open full history**. Web profiles use `/students/{id}?batch={batchId}` and request the same session-only token. Never put the Gemini key in either client.
+2. Create an approved Supabase mentor account using [MENTOR-AUTH.md](MENTOR-AUTH.md). Set `GEMINI_API_KEY` and `GEMINI_MODEL` to enable generation, using a billing-enabled Gemini project and a model supporting structured output. See `.env.example`. Restart the backend after changing its environment.
+3. In Flutter, sign in with your mentor email and password, then open a student and choose **Open full history**. Web profiles use `/students/{id}?batch={batchId}` and use the remembered mentor session. Never put the Gemini key in either client.
 4. Use **Generate summary**, inspect the source reports, then optionally choose **Mark reviewed**. **Refresh summary** reuses an unchanged saved result; edits, additions, deletions, model changes, or prompt changes require regeneration.
 
 Sample web profile: `/students/b2-1?batch=batch-2&demo=1`. Flutter's sample Aarav profile contains seven reports over six dates, including two reports on the final date. Sample mode never calls Gemini.
@@ -15,14 +15,14 @@ Sample web profile: `/students/b2-1?batch=batch-2&demo=1`. Flutter's sample Aara
 
 - GET `/api/students/{id}/history?batch=...` accepts `from`, `through`, `project`, `lesson`, `status`, and a returned `cursor`. It returns 20 original reports per page plus an overview. `report={reportId}` resolves an evidence link while still enforcing student/batch ownership.
 - GET/POST `/api/students/{id}/summary?batch=...` reads/generates a summary with the same filters. POST with `action=review` marks a current saved summary reviewed without a provider call.
-- Live reads/generation/review require the mentor token. This POC credential grants access to the mentor workspace; individual mentor accounts, audit identity, and per-mentor batch permissions remain future work.
+- Live reads/generation/review require a server-validated Supabase account with the administrator-assigned mentor role. Mentors currently access all batches; per-mentor batch permissions and a complete audit trail remain future work.
 - Original reports are never overwritten. Date/project filters apply to usage; lesson/status filters apply only to learning reports because usage has no lesson/status attribution.
 - The database reader uses keyset pagination and loads only this student's records for aggregation, with an explicit 20,000-row safety limit per source. Clients paginate the report display.
 - Gemini receives pseudonymous report references, numeric lesson coordinates, project aliases, and relevant assessment text. Known student names, emails, and URLs are removed from text. This is data minimization, not a guarantee that all free-text personal information is detectable; review source content before enabling real-data processing.
 - Generation splits at report boundaries into at most five 24,000-character chunks, then combines grounded chunk summaries. A report/history exceeding these bounds is rejected before provider calls, with a request to reduce the scope; nothing is silently truncated.
 - Generation has a two-minute overall provider deadline, a 45-second per-call timeout, and a three-minute database lease. One student cannot start another generation within 60 seconds, even with different filters. Failed requests preserve the previous saved summary.
 - API usage on successful summary runs includes intermediate chunks and is shown separately from student tokens. This is not a complete billing ledger for failed provider calls.
-- Mobile filters collapse on narrow screens; full history is the default. Named student routes retain student/batch identity; live browser refresh requires reconnecting because credentials are not persisted.
+- Mobile filters collapse on narrow screens; full history is the default. Named student routes retain student/batch identity; sessions are restored automatically on reopening.
 - Scheduled summaries, exports, editable mentor notes, and persistent intermediate chunk caching are deferred. Each required regeneration starts from original reports.
 
 ## Verification

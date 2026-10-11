@@ -5,7 +5,7 @@ export async function OPTIONS(request: Request) { return new Response(null, { st
 export async function GET(request: Request, ctx: { params: Promise<{ id: string }> }) {
   try {
     const p = new URL(request.url).searchParams, demo = p.get("demo") === "1";
-    if (!demo) authorizeMentor(request);
+    if (!demo) await authorizeMentor(request);
     const scope = historyScope(request, (await ctx.params).id);
     const context = await studentContext(scope, demo);
     return NextResponse.json({ ok: true, ...historyPage(context, scope, p.get("cursor"), p.get("report")) }, { headers: mentorHeaders(request) });

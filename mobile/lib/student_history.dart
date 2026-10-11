@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+import 'mentor_session.dart';
 import 'workspace.dart';
 
 String reportLesson(Record r) =>
@@ -112,21 +112,19 @@ Record localStudentHistory(
 
 class StudentHistoryPage extends StatefulWidget {
   final Workspace workspace;
-  final String batch, studentId, endpoint, token;
+  final String batch, studentId, endpoint;
   const StudentHistoryPage({
     super.key,
     required this.workspace,
     required this.batch,
     required this.studentId,
     required this.endpoint,
-    required this.token,
   });
   @override
   State<StudentHistoryPage> createState() => StudentHistoryPageState();
 }
 
-// Reopens a named student route after a browser refresh. Live credentials stay
-// session-only and are requested again; a live route never falls back to samples.
+// Reopens a named student route using the restored mentor session.
 class StudentHistoryEntry extends StatefulWidget {
   final String batch, studentId;
   final bool sample;
@@ -141,24 +139,13 @@ class StudentHistoryEntry extends StatefulWidget {
 }
 
 class _StudentHistoryEntryState extends State<StudentHistoryEntry> {
-  final endpoint = TextEditingController(
-    text: const String.fromEnvironment('API_BASE_URL'),
-  );
-  final token = TextEditingController();
   Workspace? data;
   bool busy = false;
   String? error;
   @override
   void initState() {
     super.initState();
-    if (widget.sample) load();
-  }
-
-  @override
-  void dispose() {
-    endpoint.dispose();
-    token.dispose();
-    super.dispose();
+    load();
   }
 
   Future<void> load() async {
@@ -167,13 +154,9 @@ class _StudentHistoryEntryState extends State<StudentHistoryEntry> {
       error = null;
     });
     try {
-      if (!widget.sample && endpoint.text.trim().isEmpty) {
-        throw Exception('Enter your backend URL.');
-      }
       final result = await WorkspaceRepository().load(
         widget.batch,
-        endpoint: widget.sample ? null : endpoint.text.trim(),
-        token: token.text.trim(),
+        endpoint: widget.sample ? null : mentorSession.baseUrl,
       );
       if (!result
           .studentsIn(widget.batch)
@@ -203,8 +186,7 @@ class _StudentHistoryEntryState extends State<StudentHistoryEntry> {
         workspace: data!,
         batch: widget.batch,
         studentId: widget.studentId,
-        endpoint: endpoint.text.trim(),
-        token: token.text.trim(),
+        endpoint: widget.sample ? '' : mentorSession.baseUrl,
       );
     }
     return Scaffold(
@@ -216,32 +198,9 @@ class _StudentHistoryEntryState extends State<StudentHistoryEntry> {
             shrinkWrap: true,
             padding: const EdgeInsets.all(24),
             children: [
-              if (!widget.sample) ...[
-                const Text(
-                  'Reconnect to open this student’s live history. Credentials stay in memory.',
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: endpoint,
-                  decoration: const InputDecoration(labelText: 'Backend URL'),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: token,
-                  obscureText: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Mentor access token',
-                  ),
-                ),
-                const SizedBox(height: 16),
-                FilledButton(
-                  onPressed: busy ? null : load,
-                  child: const Text('Connect'),
-                ),
-              ],
               if (busy) const LinearProgressIndicator(),
               if (error != null) Text(error!),
-              if (widget.sample && error != null)
+              if (error != null)
                 TextButton(onPressed: load, child: const Text('Retry')),
             ],
           ),
@@ -290,12 +249,18 @@ class StudentHistoryPageState extends State<StudentHistoryPage> {
         .replace(
           queryParameters: {'batch': widget.batch, ...filters, ...extra},
         );
-    final headers = {'Authorization': 'Bearer ${widget.token}'};
-    final response =
-        await (post
-                ? http.post(uri, headers: headers)
-                : http.get(uri, headers: headers))
-            .timeout(Duration(seconds: post ? 150 : 30));
+    final response = await mentorSession.request(
+      '${uri.path}?${uri.query}',
+      post: post,
+      timeout: Duration(seconds: post ? 150 : 30),
+    );
+    if (!(response.headers['content-type'] ?? '').contains(
+      'application/json',
+    )) {
+      throw Exception(
+        'The server needs the latest update. Please try again later.',
+      );
+    }
     final body = jsonDecode(response.body) as Record;
     if (response.statusCode != 200 || body['ok'] != true) {
       throw Exception(body['message'] ?? 'Student request failed.');

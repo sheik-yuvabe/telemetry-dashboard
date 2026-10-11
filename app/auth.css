@@ -1,0 +1,11 @@
+.auth-page { min-height: 100dvh; display: grid; place-items: center; padding: 36px 20px; background: var(--background, #f6f4fb); }
+.auth-card { width: min(100%, 470px); padding: clamp(24px, 5vw, 42px); border: 1px solid var(--line); background: var(--surface, white); border-radius: 24px; }
+.auth-card h1 { font-size: clamp(28px, 4vw, 38px); line-height: 1.16; margin: 20px 0 14px; }
+.auth-card p { line-height: 1.6; }
+.auth-card form { display: grid; gap: 18px; margin: 26px 0; }
+.auth-card label { display: grid; gap: 8px; font-size: 14px; font-weight: 600; }
+.auth-card input { width: 100%; min-height: 48px; padding: 12px; border: 1px solid var(--line); background: var(--surface, white); color: inherit; border-radius: 10px; }
+.auth-card button { min-height: 44px; font-size: 14px; }
+.auth-note { font-size: 13px; opacity: .75; }
+.auth-error { color: #b33248; }
+.auth-theme { position: absolute; top: 20px; right: 24px; }

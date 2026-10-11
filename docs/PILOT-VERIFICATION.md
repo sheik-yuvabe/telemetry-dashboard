@@ -1,5 +1,7 @@
 # Pilot verification — 2026-10-11
 
+The following is the earlier pilot record. The shared-token flow and public website have been replaced by [Supabase mentor authentication](MENTOR-AUTH.md); this historical record does not describe current access requirements.
+
 - Generated a local mentor token in ignored `.env.local`; confirmed the backend accepts it and rejects missing credentials.
 - Prepared `supabase/pilot-setup.sql`, combining both schema migrations into one transaction with report-content and enrollment checks.
 - Tested the actual SQL using an isolated PostgreSQL 18 instance with synthetic records. Passed original-field preservation, Batch 1 attribution, historical enrollment, no fictional Batch 2 roster, rerun preservation of existing Batch 2 assignments, RLS flags, restricted function grants, summary ownership/locking, save, and cooldown. The temporary server was stopped after testing.

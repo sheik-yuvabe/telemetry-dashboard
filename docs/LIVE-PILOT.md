@@ -8,7 +8,7 @@ Run from the repository root:
 node tools/pilot-setup.cjs --prepare
 ```
 
-This creates a random `MENTOR_READ_TOKEN` in ignored `.env.local` if none is configured, preserves an existing token, and generates `supabase/pilot-setup.sql` from the two source migrations. It does not change Supabase.
+This generates `supabase/pilot-setup.sql` from the two source migrations. It does not change Supabase or create credentials.
 
 Choose one migration method:
 
@@ -35,7 +35,7 @@ Run the backend with `npm run dev -- --webpack`. The Flutter preview at `http://
 python -m http.server 8080 --bind 127.0.0.1 --directory mobile/build/web
 ```
 
-In Flutter **Workspace → Advanced connection setup**, enter `http://127.0.0.1:3000` as the workspace address and the value of `MENTOR_READ_TOKEN` from `.env.local` as the access code. Restart the backend if it has not reloaded the new environment. Tokens remain in client memory. Do not enter the Supabase service-role key in either client.
+Open `https://aipbc.vercel.app` or the installed app and sign in with your mentor account. Both use the same Supabase identity; see [MENTOR-AUTH.md](MENTOR-AUTH.md). To test a local backend with Flutter web, first rebuild with `flutter build web --release --dart-define=API_BASE_URL=http://127.0.0.1:3000`, then serve the build above. The normal build uses production automatically.
 
 ## Physical Android phone over USB
 
@@ -50,7 +50,7 @@ $adbPath = "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe"
 ```
 
 3. Open the installed app. Sample mode can be tested immediately.
-4. For live mode, keep the backend running and USB connected. Set the app's backend URL to `http://127.0.0.1:3000` and enter the mentor token. USB port reversal sends this connection to the PC backend. Recreate the reverse mapping after disconnecting/restarting the phone.
+4. Normal builds connect directly to production. For a USB/local-backend test, build the APK with `--dart-define=API_BASE_URL=http://127.0.0.1:3000` before installation, keep the backend running and USB connected, then sign in. Recreate the reverse mapping after reconnecting. No address or token is entered in the app.
 5. Test light/dark mode, each batch, student history, same-day reports, filters, projects, and usage. Compare the same student's records on web and phone.
 
 For non-USB access use an HTTPS backend; the app does not allow arbitrary LAN HTTP URLs. Repeat installation and runtime checks for each target phone; [pilot verification](PILOT-VERIFICATION.md) records the device already tested. See [Android device connection and installation](https://developer.android.com/tools/adb).

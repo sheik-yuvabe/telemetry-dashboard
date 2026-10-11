@@ -8,7 +8,7 @@ async function handle(request: Request, ctx: { params: Promise<{ id: string }> }
   try {
     const demo = new URL(request.url).searchParams.get("demo") === "1";
     if (generate && demo) throw new ApiError("Sample mode does not generate AI summaries.");
-    if (!demo) authorizeMentor(request);
+    if (!demo) await authorizeMentor(request);
     const scope = historyScope(request, (await ctx.params).id), context = await studentContext(scope, demo);
     const review = new URL(request.url).searchParams.get("action") === "review";
     const result = generate ? review ? await reviewStudentSummary(context, scope) : await generateStudentSummary(context, scope) : await summaryState(context, scope);

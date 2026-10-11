@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ThemeSwitch } from "./theme-switch";
 import type { HistoryResponse, SummaryState } from "@/lib/student-history";
 import type { TelemetryReport } from "@/lib/types";
+import { sessionFetch } from '@/lib/session-client';
 
 const sectionLabels = { overview: "Learning overview", strengths: "Strengths", difficulties: "Recurring difficulties", progress: "Changes over time", nextSteps: "Suggested mentor actions" } as const;
 const time = (value: string) => new Date(value).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" });
@@ -12,7 +13,7 @@ export function ReportDetail({ report }: { report: TelemetryReport }) {
   return <article className="history-report" id={report.id}><h3>{report.reportDate} · {report.understandingStatus}</h3><p className="muted">{time(report.createdAt)} IST · {report.lessonPath || `Month ${report.month}, week ${report.week}, day ${report.day}`}</p><p>{report.summary}</p><dl><dt>Reported learning progress</dt><dd>{report.progressScore}%</dd><dt>Reported confidence</dt><dd>{report.confidenceScore}%</dd><dt>Lesson detection confidence</dt><dd>{report.lessonConfidence}</dd><dt>Recorded gaps</dt><dd>{report.gapCategories.join(", ") || "None recorded"}</dd><dt>Likely causes reported</dt><dd>{report.likelyCauses.join("; ") || "None recorded"}</dd><dt>Suggested tutor action</dt><dd>{report.recommendedTutorAction}</dd><dt>Trigger</dt><dd>{report.triggerReason}</dd><dt>Project</dt><dd>{report.projectId || "Project not recorded"}</dd></dl><small>Report ID: {report.id}</small></article>;
 }
 export function StudentHistory({ studentId, batchId, demo }: { studentId: string; batchId: string; demo: boolean }) {
-  const [token, setToken] = useState(""), [credential, setCredential] = useState(""), [tab, setTab] = useState("Overview");
+  const [tab, setTab] = useState("Overview");
   const [filters, setFilters] = useState({ from: "", through: "", project: "", lesson: "", status: "" });
   const [data, setData] = useState<HistoryResponse | null>(null), [summary, setSummary] = useState<SummaryState | null>(null);
   const [error, setError] = useState(""), [summaryError, setSummaryError] = useState(""), [busy, setBusy] = useState(false), [generating, setGenerating] = useState(false);
@@ -21,14 +22,13 @@ export function StudentHistory({ studentId, batchId, demo }: { studentId: string
   const epoch = useRef(0);
   const query = new URLSearchParams({ batch: batchId, ...filters, ...(demo ? { demo: "1" } : {}) }).toString();
   const api = useCallback(async (kind: string, extra = "", method = "GET") => {
-    const response = await fetch(`/api/students/${encodeURIComponent(studentId)}/${kind}?${query}${extra}`, { method, headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(method === "POST" ? 150000 : 30000) });
+    const response = await sessionFetch(`/api/students/${encodeURIComponent(studentId)}/${kind}?${query}${extra}`, { method, signal: AbortSignal.timeout(method === "POST" ? 150000 : 30000) });
     const body = await response.json();
     if (!response.ok || !body.ok) throw new Error(body.message || "Request failed.");
     return body;
-  }, [studentId, query, token]);
+  }, [studentId, query]);
   useEffect(() => {
     const id = ++epoch.current;
-    if (!demo && !token) return;
     let cancelled = false;
     async function load() {
       setBusy(true); setError(""); setData(null); setSummary(null); setSummaryError(""); setDetail(null); setGenerating(false);
@@ -42,7 +42,7 @@ export function StudentHistory({ studentId, batchId, demo }: { studentId: string
     }
     void load();
     return () => { cancelled = true; };
-  }, [api, demo, token, reload]);
+  }, [api, demo, reload]);
   async function more() {
     if (!data?.nextCursor) return;
     const id = epoch.current; setBusy(true); setError("");
@@ -72,7 +72,7 @@ export function StudentHistory({ studentId, batchId, demo }: { studentId: string
     <header className="history-header"><Link href={`/?batch=${encodeURIComponent(batchId)}&view=students${demo ? "&demo=1" : ""}`}><Image src="/yuvabe-education-logo.svg" width={38} height={38} alt="" unoptimized/> Back to students</Link><ThemeSwitch/></header>
     <div className="page-heading"><div><p className="eyebrow">{data?.context.batch.name || batchId} / STUDENT HISTORY</p><h1>{data?.context.student.name || "Student profile"}</h1><p>Every report, with the context behind the progress.</p></div></div>
     {demo && <div className="notice neutral">Sample student history. These reports are fictional; no Gemini requests are made.</div>}
-    {!demo && !token ? <form className="panel history-card" onSubmit={e => { e.preventDefault(); setToken(credential); setCredential(""); }}><h2>Open student history</h2><p>Use the mentor access token configured on your backend. It stays in memory for this page.</p><label>Mentor access token<input type="password" value={credential} onChange={e => setCredential(e.target.value)} required autoComplete="off"/></label><button className="primary-button" type="submit">Connect</button></form> : <>
+    <>
       <section className="panel history-filters" aria-label="History filters">
         <label>From<input type="date" value={filters.from} onChange={e => setFilters({ ...filters, from: e.target.value })}/></label>
         <label>Through<input type="date" value={filters.through} onChange={e => setFilters({ ...filters, through: e.target.value })}/></label>
@@ -82,7 +82,7 @@ export function StudentHistory({ studentId, batchId, demo }: { studentId: string
         <button className="secondary-button" onClick={() => setFilters({ from: "", through: "", project: "", lesson: "", status: "" })}>All history</button>
       </section>
       <nav className="history-tabs" aria-label="Student sections">{["Overview", "Reports", "Projects", "Usage"].map(t => <button key={t} className={tab === t ? "primary-button" : "secondary-button"} onClick={() => setTab(t)} aria-current={tab === t ? "page" : undefined}>{t}</button>)}</nav>
-      {error && <div className="notice" role="alert">{error}<button onClick={() => setReload(x => x + 1)}>Retry</button>{!demo && <button onClick={() => setToken("")}>Change token</button>}</div>}
+      {error && <div className="notice" role="alert">{error}<button onClick={() => setReload(x => x + 1)}>Retry</button></div>}
       {busy && <p role="status">Loading reports…</p>}
       {overview && data && <>
       {tab === "Overview" && <>
@@ -101,7 +101,7 @@ export function StudentHistory({ studentId, batchId, demo }: { studentId: string
       {tab === "Projects" && <div className="project-grid">{data.context.projects.map(p => <article className="panel history-card" key={p.id}><h2>{p.name}</h2><p>{p.description}</p><p>{p.status} · Project progress {p.progress}%</p><button className="text-link" onClick={() => { setFilters({ from: "", through: "", project: p.id, lesson: "", status: "" }); setTab("Reports"); }}>View project reports</button></article>)}</div>}
       {tab === "Usage" && <section className="panel history-card"><h2>Individual measured usage</h2><p>Input + output; cached input is already included. Date/project filters apply; lesson/status filters do not. No events means usage was not recorded.</p><div className="table-wrap"><table><thead><tr><th>Date (IST)</th><th>Project</th><th>Input</th><th>Output</th><th>Cached input</th></tr></thead><tbody>{overview.usage.map(e => <tr key={e.eventId}><td>{time(e.occurredAt)}</td><td>{data.context.projects.find(p => p.id === e.projectId)?.name || "Not recorded"}</td><td>{e.inputTokens.toLocaleString()}</td><td>{e.outputTokens.toLocaleString()}</td><td>{e.cachedInputTokens.toLocaleString()}</td></tr>)}</tbody></table></div>{!overview.usage.length && <p>Not recorded in this scope.</p>}</section>}
       </>}
-    </>}
+    </>
     {detail && <div className="drawer-overlay" onClick={() => setDetail(null)}><section className="student-drawer" role="dialog" aria-modal="true" aria-label="Source report" onClick={e => e.stopPropagation()} onKeyDown={e => { if (e.key === "Escape") setDetail(null); if (e.key === "Tab") { e.preventDefault(); e.currentTarget.querySelector("button")?.focus(); } }}><button className="secondary-button" autoFocus onClick={() => setDetail(null)}>Close report</button><ReportDetail report={detail}/></section></div>}
   </main>;
 }

@@ -80,7 +80,7 @@ Provide the real Batch 2 roster, account assignments, project details, and usage
 
 ## Access boundary
 
-The original app has no mentor sign-in. This redesign does not claim to solve that deployment issue or provide per-student ingestion credentials. Usage ingestion requires the existing server-side ingest token. Add mentor authentication and scoped credentials before exposing student records beyond the intended environment; see `LOGIC-REVIEW.md` items 34–36.
+All live pages and report APIs require Supabase mentor authentication; see [MENTOR-AUTH.md](MENTOR-AUTH.md). The administrator-controlled mentor role currently grants access to all batches. Usage ingestion still uses the separate server-side ingest token. Per-student ingestion credentials and per-mentor batch permissions remain future work.
 
 ## Verification
 

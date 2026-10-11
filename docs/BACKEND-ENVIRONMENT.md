@@ -17,7 +17,7 @@ Use the exact model ID enabled for your Gemini project, without a URL or `models
 
 Open the **Next.js backend project → Settings → Environment Variables**, add `GEMINI_API_KEY` and `GEMINI_MODEL`, select Production and/or Preview as appropriate, and redeploy the backend. Editing local `.env.local` does not update an existing deployment. See [Vercel's instructions](https://vercel.com/docs/environment-variables/managing-environment-variables).
 
-The deployed backend also needs `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `TELEMETRY_INGEST_TOKEN`, and `MENTOR_READ_TOKEN`. If Flutter web is hosted separately, add its exact origin to `MENTOR_ALLOWED_ORIGINS`.
+The deployed backend also needs `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `TELEMETRY_INGEST_TOKEN`. If Flutter web is hosted separately, add its exact origin to `MENTOR_ALLOWED_ORIGINS`.
 
 Do not use `NEXT_PUBLIC_` for private keys or put them in Flutter assets/build defines. Keep keys on the server; see [Google's Gemini key guidance](https://ai.google.dev/gemini-api/docs/api-key).
 
@@ -27,8 +27,8 @@ Do not use `NEXT_PUBLIC_` for private keys or put them in Flutter assets/build d
 
 `SUPABASE_DB_URL` is only needed for that migration runner, not normal app operation. Running the SQL in Supabase avoids needing this extra credential locally.
 
-## Workspace page
+## Mentor sign-in
 
-The labelled **Workspace** action replaces the old gear popup. It explains sample versus live records, with the workspace address and mentor access code under **Advanced connection setup**. The code is the backend's `MENTOR_READ_TOKEN`, kept in memory for the app session. This remains a pilot connection mechanism, not individual mentor sign-in.
+Supabase Auth manages mentor accounts and sessions. The app connects automatically and remembers sign-in. **Account** shows your email, change-password form, and sign out. No workspace address or shared code is requested. See [mentor authentication](MENTOR-AUTH.md).
 
-Gemini is configured only on the backend. After migrations and Gemini variables are ready, connect to live data and use **Generate summary** in a student's history. Sample mode never calls Gemini.
+Gemini is configured on the backend. After migrations and Gemini variables are ready, sign in and use **Generate summary** in a student's history. Sample mode never calls Gemini.
