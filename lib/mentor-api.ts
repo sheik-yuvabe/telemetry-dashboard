@@ -17,7 +17,10 @@ export function historyScope(request: Request, studentId: string): HistoryScope 
   const p = new URL(request.url).searchParams;
   const id = (value: string) => { if (!/^[a-zA-Z0-9_-]{1,120}$/.test(value)) throw new ApiError("Invalid student, batch, or project identifier."); return value; };
   const date = (key: string) => { const v = p.get(key) || ""; if (v) { try { ensureDateParam(v); } catch { throw new ApiError("Use a valid date in YYYY-MM-DD format."); } } return v; };
-  const scope = { batchId: id(p.get("batch") || "batch-2"), studentId: id(studentId), from: date("from"), through: date("through"), project: p.get("project") || "", lesson: p.get("lesson") || "", status: p.get("status") || "" };
+  // Historical collector IDs include email addresses and names with spaces.
+  // Preserve their exact identity while excluding URL/filter control syntax.
+  if (!/^[a-zA-Z0-9@.+ _-]{1,200}$/.test(studentId) || !studentId.trim()) throw new ApiError("Invalid student identifier.");
+  const scope = { batchId: id(p.get("batch") || "batch-2"), studentId, from: date("from"), through: date("through"), project: p.get("project") || "", lesson: p.get("lesson") || "", status: p.get("status") || "" };
   if (scope.project) id(scope.project);
   if (scope.from && scope.through && scope.from > scope.through) throw new ApiError("Start date must be before the end date.");
   if (scope.lesson.length > 500 || !["", "clear", "partial", "stuck"].includes(scope.status)) throw new ApiError("Invalid report filter.");

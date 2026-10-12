@@ -21,6 +21,11 @@ async function run(){
     for(const batch of ['batch-1','batch-2']){
       const r=await fetch(base+'/api/workspace?batch='+batch,{headers:{Cookie:cookie}});assert.equal(r.status,200);const b=await r.json();assert.equal(b.workspace.mode,'live');
       console.log(JSON.stringify({batch,status:r.status,students:b.workspace.students.length,reports:b.reports.length}));
+      for (const student of b.workspace.students) {
+        const history = await fetch(base+'/api/students/'+encodeURIComponent(student.studentId)+'/history?batch='+batch,{headers:{Cookie:cookie}});
+        assert.equal(history.status,200,'Enrolled student history must be readable');
+      }
+      console.log(`${batch}: every enrolled student history opened successfully.`);
     }
     const refreshed=await post('/api/auth/refresh',{},cookie);assert.equal(refreshed.status,200);cookie=refreshed.headers.getSetCookie().map(c=>c.split(';')[0]).join('; ');console.log('Session refresh passed.');
     const html=await fetch(base+'/',{headers:{Cookie:cookie},redirect:'manual'});assert.equal(html.status,200);console.log('Signed-in dashboard passed.');

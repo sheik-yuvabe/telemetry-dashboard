@@ -47,6 +47,12 @@ async function run() {
   assert.throws(() => validateSummary({ ...content, overview: [{ text: 'Uncited', reportIds: [] }] }, new Set()), /supporting reports/);
   assert.throws(() => historyScope(new Request('https://local.test?batch=batch-2&from=2026-02-30'), 'b2-1'), /valid date/);
   assert.throws(() => historyScope(new Request('https://local.test?from=2026-10-10&through=2026-10-01'), 'b2-1'), /Start date/);
+  for (const legacyId of ['learner.one@example.com', 'Learner One', 'learner+course@example.com']) {
+    assert.equal(historyScope(new Request('https://local.test?batch=batch-1'), legacyId).studentId, legacyId);
+  }
+  for (const invalidId of ['', '   ', 'learner/other', 'x,or=(id.eq.y)', 'x\n', 'a'.repeat(201)]) {
+    assert.throws(() => historyScope(new Request('https://local.test'), invalidId), /Invalid student/);
+  }
   await assert.rejects(() => authorizeMentor(new Request('https://local.test')), /sign in/);
 
   // Fake provider + persistence: no external requests, real keys, or student data.
