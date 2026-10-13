@@ -42,7 +42,9 @@ export type TelemetryReport = {
   triggerReason: TriggerReason;
 };
 
-export type FeedbackPayload = Omit<TelemetryReport, "id" | "createdAt">;
+export type FeedbackPayload = Omit<TelemetryReport, "id" | "createdAt"> & {
+  project?: { key: string; title: string };
+};
 
 export type CreateFeedbackResult = {
   report: TelemetryReport;
@@ -299,7 +301,18 @@ export function parseFeedbackPayload(value: unknown): FeedbackPayload {
     throw new Error("day is invalid and could not be inferred from the lesson path.");
   }
 
+  let project: FeedbackPayload['project'];
+  if (payload.project != null) {
+    if (typeof payload.project !== 'object' || Array.isArray(payload.project)) throw new Error('project must contain a key and title.');
+    const input = payload.project as Record<string, unknown>;
+    const key = parseString(input.key, 'project.key');
+    const title = parseString(input.title, 'project.title');
+    if (!/^[a-zA-Z0-9_-]{1,120}$/.test(key) || title.length > 160 || /[\x00-\x1f]/.test(title)) throw new Error('Invalid project key or title.');
+    if (payload.projectId) throw new Error('Send project metadata or an existing projectId, not both.');
+    project = { key, title };
+  }
   return {
+    ...(project ? { project } : {}),
     batchId: parseString(payload.batchId ?? "batch-1", "batchId"),
     projectId: parseOptionalString(payload.projectId),
     studentId: parseString(payload.studentId, "studentId"),

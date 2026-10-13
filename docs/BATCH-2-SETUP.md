@@ -31,13 +31,13 @@ insert into public.student_projects(id, batch_id, student_id, name, description,
 values ('project-001', 'batch-2', 'student-001', 'Project name', 'What the student is building', 'building', 20);
 ```
 
-Manage enrollment, account assignments, and project milestones in Supabase for this version. The UI provides browsing/filtering, not an administration editor. Account capacities are 2 or 4; an over-capacity assignment is highlighted. Project progress is an explicit milestone percentage and is separate from a learning assessment's progress score.
+Manage enrollment, account assignments, and project milestones in Supabase for this version. The UI provides browsing/filtering, not an administration editor. Project creation can now be automatic: configure `project_mode: "agent"` and let the coding assistant identify the title on each new project's first report. The project insert above is only for manual registration; see [student reporting](STUDENT-REPORTING.md). Account capacities are 2 or 4; an over-capacity assignment is highlighted. Project progress is an explicit milestone percentage and is separate from a learning assessment's progress score.
 
 ## Shared accounts and student identities
 
 An account is not a student. Use a unique student ID for every learner even if four learners sign into the same account. Every student device/workspace needs its own configured identity. Do not infer a person's identity from a shared provider account or divide shared totals equally.
 
-The feedback helper now reads `student_id`, `student_name`, `batch_id`, and `project_id` from its config. It also accepts `--student-id`, `--student-name`, `--batch`, and `--project` overrides. Batch 2 requires an explicit student identity. Existing Batch 1 fallback identity behavior remains available for compatibility.
+The feedback helper reads mentor-controlled `student_id`, `student_name`, and `batch_id` from config and rejects conflicting identity arguments. Agent project mode takes the title from the assistant and saves a stable project key per project folder. A fixed `project_id` is supported only for legacy manual mode. Batch 2 requires an explicit student identity. Existing Batch 1 fallback identity behavior remains available for legacy configurations.
 
 Use `docs/telemetry-config.batch-2.example.json` as the new config example. Keep the existing helper endpoint at `/api/feedback`; usage events use the separate API below.
 

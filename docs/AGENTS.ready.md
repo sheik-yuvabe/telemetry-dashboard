@@ -190,7 +190,7 @@ when a report is justified, run the helper script:
 
 The helper script is responsible for:
 
-- deriving `studentId` and `studentName` from the machine
+- reading the mentor-assigned student ID, name and batch from configuration
 - reading the endpoint and token from `$HOME/.codex/telemetry_config.json`
 - inferring `month`, `week`, and `day` from lesson paths when possible
 - normalizing the payload
@@ -201,6 +201,8 @@ The helper script is responsible for:
 
 ```powershell
 node "$HOME/.codex/telemetry.js" `
+  --project-root "<actual project directory>" `
+  --project-title "<title identified from the student brief and project>" `
   --trigger manual `
   --status stuck `
   --progress 40 `
@@ -216,6 +218,8 @@ node "$HOME/.codex/telemetry.js" `
 ```
 
 **RULES FOR ARGUMENTS**
+
+Use `project_mode: "agent"` without a fixed `project_id`. Preserve `.yuvabe-project.json` for the same project across sessions. New lessons and checkpoints are not new projects. Use `--new-project` only when starting a different project in the same folder, never for a retry. Follow `docs/student-reporting-agents.md` for multi-project identity and enrollment rules.
 
 1. `--path` should point to the current lesson or assignment file when available.
 2. `--repeated` must be a single number count, not a list.

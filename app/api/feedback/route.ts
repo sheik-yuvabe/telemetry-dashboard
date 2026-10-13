@@ -3,6 +3,7 @@ import { verifyIngestToken } from "@/lib/auth";
 import { createFeedbackReport } from "@/lib/store";
 import { parseFeedbackPayload } from "@/lib/types";
 import { validateReportEnrollment } from "@/lib/dashboard-data";
+import { resolveReportProject } from '@/lib/report-project';
 
 export async function POST(request: Request) {
   try {
@@ -20,7 +21,9 @@ export async function POST(request: Request) {
 
     const body = await request.json();
     const payload = parseFeedbackPayload(body);
+    if (payload.project && authResult.mode !== 'protected') throw new Error('Configure authenticated ingestion before registering projects.');
     await validateReportEnrollment(payload);
+    payload.projectId = await resolveReportProject(payload);
     const result = await createFeedbackReport(payload);
 
     return NextResponse.json(

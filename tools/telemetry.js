@@ -5,6 +5,7 @@ const os = require('os');
 const path = require('path');
 const http = require('http');
 const https = require('https');
+const { randomUUID } = require('crypto');
 
 const DEFAULT_CONFIG_PATH = path.join(os.homedir(), '.codex', 'telemetry_config.json');
 const DEFAULT_EXPORT_DIR = path.join(os.homedir(), '.codex', 'telemetry_exports');
@@ -13,12 +14,16 @@ const ALLOWED_STATUSES = new Set(['clear', 'partial', 'stuck']);
 const ALLOWED_LESSON_CONFIDENCE = new Set(['high', 'medium', 'low']);
 const ALLOWED_GAPS = new Set(['concept', 'debugging', 'repo-navigation', 'problem-decomposition', 'tool-usage', 'assignment-reading', 'git-workflow']);
 
-main();
+if (require.main === module) {
+  try { main(); } catch (error) { process.stderr.write(`${error.message}\n`); process.exitCode = 1; }
+}
 
 function main() {
   const args = parseArgs(process.argv.slice(2));
   const config = loadConfig(args.config || DEFAULT_CONFIG_PATH);
   const payload = buildPayload(args, config);
+  const project = resolveProject(args, config);
+  if (project) { payload.project = project; payload.projectId = null; }
 
   if (args.dryRun) {
     process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
@@ -58,12 +63,15 @@ function parseArgs(argv) {
       args.dryRun = true;
       continue;
     }
+    if (key === 'new-project') { args.newProject = true; continue; }
 
     if (next === undefined || next.startsWith('--')) {
       throw new Error(`Missing value for --${key}`);
     }
 
     switch (key) {
+      case 'project-title': args.projectTitle = next; break;
+      case 'project-root': args.projectRoot = next; break;
       case 'config':
         args.config = next;
         break;
@@ -147,6 +155,8 @@ function loadConfig(configPath) {
   }
 
   const raw = JSON.parse(fs.readFileSync(resolvedPath, 'utf8'));
+  if (raw.reporting_enabled === false) throw new Error('Student reporting is disabled on this computer. A mentor must configure and enable its student profile.');
+  if (raw.project_mode === 'agent' && (!raw.student_id?.trim() || !raw.student_name?.trim() || !raw.batch_id?.trim())) throw new Error('Agent project reporting requires a mentor-configured student ID, name and batch.');
   const endpoint = String(raw.endpoint || '').trim();
   const token = String(raw.token || '').trim();
   const timeoutSeconds = Number(raw.timeout_seconds || 10);
@@ -168,6 +178,7 @@ function loadConfig(configPath) {
     studentId: raw.student_id || null,
     studentName: raw.student_name || null,
     projectId: raw.project_id || null,
+    projectMode: raw.project_mode || 'manual',
   };
 }
 
@@ -184,6 +195,9 @@ function buildPayload(args, config) {
   args.gaps.forEach((gap) => validateEnum(gap, ALLOWED_GAPS, '--gap'));
 
   const batchId = args.batchId || config.batchId;
+  if (config.studentId && args.studentId && args.studentId !== config.studentId || config.studentName && args.studentName && args.studentName !== config.studentName || args.batchId && args.batchId !== config.batchId) {
+    throw new Error('Student identity and batch are mentor-managed. Update the device configuration instead of overriding them in a report.');
+  }
   const student = args.studentId || config.studentId || (batchId === 'batch-1' ? machineIdentity() : null);
   validateRequired(student, '--student-id or config.student_id');
   const lessonPath = args.lessonPath || args.path || null;
@@ -216,6 +230,35 @@ function buildPayload(args, config) {
     repeatedTopicSignals: bounded(args.repeated ?? 1, 0, 20, 'repeated'),
     triggerReason: args.trigger,
   };
+}
+
+function resolveProject(args, config) {
+  const automatic = config.projectMode === 'agent' || args.projectTitle || args.projectRoot || args.newProject;
+  if (!automatic) return null;
+  if (args.projectId || config.projectId) throw new Error('Remove the fixed project_id when using agent-managed projects.');
+  if (!args.projectRoot) throw new Error('Pass --project-root with the current project folder.');
+  const root = fs.realpathSync(path.resolve(expandHome(args.projectRoot)));
+  if (!fs.statSync(root).isDirectory()) throw new Error('Project root must be a directory.');
+  const manifest = path.join(root, '.yuvabe-project.json');
+  let saved;
+  if (fs.existsSync(manifest)) {
+    saved = JSON.parse(fs.readFileSync(manifest, 'utf8'));
+    if (!/^[a-zA-Z0-9_-]{1,120}$/.test(saved.key ?? '') || typeof saved.title !== 'string' || !saved.title.trim() || saved.title.length > 160 || /[\x00-\x1f]/.test(saved.title)) throw new Error('Invalid .yuvabe-project.json; restore the original project identity before sending.');
+  }
+  const title = args.projectTitle?.trim();
+  if (title && (title.length > 160 || /[\x00-\x1f]/.test(title))) throw new Error('Project title must be at most 160 characters without control characters.');
+  if (saved && !args.newProject) {
+    if (title && title !== saved.title) throw new Error('This folder already has a project. Reuse its saved title, or use --new-project only when starting a different project.');
+    return { key: saved.key, title: saved.title };
+  }
+  if (!title) throw new Error('The agent must supply --project-title for a new project, based on the student brief and workspace.');
+  const next = { key: randomUUID(), title };
+  // Dry runs never create or replace project identity on disk.
+  if (!args.dryRun) {
+    if (saved) fs.writeFileSync(`${manifest}.${saved.key}.backup`, JSON.stringify(saved, null, 2) + '\n', { flag: 'wx' });
+    fs.writeFileSync(manifest, JSON.stringify(next, null, 2) + '\n', { flag: saved ? 'w' : 'wx' });
+  }
+  return next;
 }
 
 function validateRequired(value, name) {
@@ -338,3 +381,4 @@ function expandHome(value) {
   }
   return raw;
 }
+module.exports = { loadConfig, buildPayload, resolveProject, parseArgs };

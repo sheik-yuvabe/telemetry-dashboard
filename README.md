@@ -6,6 +6,8 @@ Both the website and Flutter app use Supabase Auth with remembered sessions. Liv
 
 ## Batch 2 workspace
 
+See [student reporting setup](docs/STUDENT-REPORTING.md) for mentor-assigned student identities and agent-named projects. One student can complete many separate projects without editing the device's student configuration each time.
+
 The [student history and summary guide](docs/STUDENT-HISTORY-AND-SUMMARIES.md) covers the implemented report timeline, calculated overview, and optional saved Gemini summaries with source links and mentor review. Live use requires the summary migration and backend credentials described there.
 
 The cross-platform [Flutter client](docs/FLUTTER-CLIENT.md) is in `mobile/`, with Android, iOS, and web projects. Both clients use the purple/yellow brand and light/dark/system themes. Read the [identity and token tracking design](docs/IDENTITY-AND-TOKEN-TRACKING.md) for per-student attribution on separate computers sharing an account.
