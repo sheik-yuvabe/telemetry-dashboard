@@ -103,6 +103,7 @@ Routing rules:
 - re-check the phase file only if the project, phase, week, or scope becomes unclear or changes
 - do not search the student's workspace for phase files
 - do not treat missing phase files in the workspace as proof that the project is unknown
+- if a referenced phase file is missing from the Codex config folder, state that the syllabus is unavailable and ask the mentor to supply it; never claim to have matched its project list or invent its contents
 
 ## Start Of Session
 
@@ -204,8 +205,11 @@ These are agent instructions, not a scheduled background service. Evaluate repor
 
 ### Project identity across sessions
 
-- Identify the actual project root and title from the student's brief, README, and work. The agent supplies the title; the mentor does not need to enter 13-14 titles in advance. Ask the student when the project is unclear.
+- Identify the actual project root from the student's brief, README, and work. For a new project, read the relevant syllabus phase file and match the student's task to its project list. When there is one clear match, use the exact project title from that syllabus, preserving its spelling; do not create a paraphrase or use a generic folder/package name instead.
+- Do not select a project from week number alone when the syllabus has multiple projects in that week. Use the brief and actual work to distinguish them. If more than one match is plausible, ask the student which syllabus project they are doing before the first submission.
+- If the syllabus has no explicit title, is unavailable, or this is an approved custom project, propose a descriptive title from the brief and confirm it with the student before first registration. Never claim this fallback title came from the syllabus. The mentor need not enter 13-14 titles in each device's configuration.
 - Look for `.yuvabe-project.json` in that project root. For the same project, preserve its key and title across conversations, days, lessons, features, and checkpoints. A different lesson or wording change is not a new project.
+- Once a project identity exists, it takes precedence over freshly inferred naming. If its title appears inconsistent with the syllabus or task, surface the discrepancy for correction; do not silently rename it or create another identity for the same project. The local manifest preserves identity, while previously submitted report history is stored in Supabase; a fresh agent session does not automatically contain the earlier assessments.
 - For a new project without that file, pass `--project-root` and `--project-title`. The helper creates the file and checks backend support before sending. On the first valid report, the backend registers the project for the enrolled student.
 - For later reports on the same project, pass `--project-root` and omit `--project-title`, or use the exact saved title. Do not invent a new key or delete the manifest to fix an upload failure.
 - Prefer separate folders for separate projects. If the student explicitly starts a different project in the same folder, use `--new-project` and its title once. The helper backs up the previous identity; prior reports remain in the previous project.

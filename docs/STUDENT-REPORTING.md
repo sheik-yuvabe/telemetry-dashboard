@@ -1,6 +1,6 @@
 # Student reporting with agent-managed projects
 
-The mentor assigns the student ID, student name and batch. The AI coding assistant identifies the current project's title from the student's brief, README and actual work. It must ask when the project is unclear, not invent a title or mistake a lesson/checkpoint for a new project.
+The mentor assigns the student ID, student name and batch. For a new project, the AI coding assistant matches the student's brief and work to the relevant syllabus phase file and uses its exact title when the match is clear. Ambiguous matches require student clarification. If the syllabus is missing or the project is custom, the agent confirms a descriptive title with the student and does not label it a verified syllabus title. Saved project identities are reused across sessions; a new lesson/checkpoint is not a new project. Instructions guide naming but do not constitute a server-validated syllabus catalog.
 
 ## Mentor setup, once per computer
 
