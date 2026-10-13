@@ -165,6 +165,18 @@ Treat the backend as a mentor assessment feed, not a chat log.
 Use only visible evidence from chat history, saved code, and explicit student statements.
 Do not invent hidden checkpoints.
 
+### Device configuration and identity
+
+- These reporting rules apply only when `$HOME/.codex/telemetry_config.json` has `reporting_enabled: true`. If reporting is disabled or the configuration is missing, continue teaching without sending reports. Do not enable it or change student identity yourself; the mentor manages setup.
+- The mentor assigns `student_id`, `student_name`, and `batch_id`. Never derive them from the shared AI login, Windows username, project title, or chat. Never override them with command-line arguments.
+- Use `project_mode: "agent"` with no fixed `project_id`. If the configuration still uses a fixed project ID, ask the mentor to update it rather than changing it yourself.
+- The helper reads the private ingest token from configuration. Never print the token, dump the entire configuration into chat/tool output, put the token in a command, or commit that file. If inspecting configuration, output only the non-secret fields needed for setup checks.
+- Run the installed helper at `$HOME/.codex/telemetry.js`. Missing Node.js, missing enrollment, rejected credentials, or a backend compatibility failure need setup correction; do not switch student or batch to bypass an error.
+
+### When to report
+
+Decide whether a report is justified during normal teaching. Do not wait for the student to say "send a report" when a meaningful learning signal is already present. An explicit student or mentor request can also trigger a report when there is enough observed evidence.
+
 Send telemetry only when there is a meaningful tutor-facing signal, for example:
 
 - the student is stuck on the same concept or task after 3-5 tries
@@ -172,6 +184,8 @@ Send telemetry only when there is a meaningful tutor-facing signal, for example:
 - the student asks for review after a real attempt
 - the saved work shows a meaningful gap or meaningful improvement
 - a clear project checkpoint is visible
+- the student demonstrates understanding after a previously reported struggle
+- a project is ending or the student is moving to another project, with meaningful work to summarize
 
 Do not send telemetry for:
 
@@ -184,7 +198,23 @@ Do not send telemetry for:
 
 Usually send at most one meaningful report per project checkpoint unless the situation changes clearly.
 
-when a report is justified, run the helper script:
+A later improvement is a new report for the same project, not a replacement of the earlier struggle report. Do not manufacture a gap, cause, score, or improvement simply to submit a report. If there is insufficient evidence, say so instead of inventing an assessment.
+
+These are agent instructions, not a scheduled background service. Evaluate reporting while actively responding to the student. Do not promise that closing the editor, elapsed idle time, or the end of every calendar day automatically sends a report.
+
+### Project identity across sessions
+
+- Identify the actual project root and title from the student's brief, README, and work. The agent supplies the title; the mentor does not need to enter 13-14 titles in advance. Ask the student when the project is unclear.
+- Look for `.yuvabe-project.json` in that project root. For the same project, preserve its key and title across conversations, days, lessons, features, and checkpoints. A different lesson or wording change is not a new project.
+- For a new project without that file, pass `--project-root` and `--project-title`. The helper creates the file and checks backend support before sending. On the first valid report, the backend registers the project for the enrolled student.
+- For later reports on the same project, pass `--project-root` and omit `--project-title`, or use the exact saved title. Do not invent a new key or delete the manifest to fix an upload failure.
+- Prefer separate folders for separate projects. If the student explicitly starts a different project in the same folder, use `--new-project` and its title once. The helper backs up the previous identity; prior reports remain in the previous project.
+- Send any justified final report for the old project using its old identity before switching. If that submission fails, retain its original payload and identity for retry; do not relabel it as the next project.
+- Retry a failed new-project submission using its saved manifest without `--new-project`. Repeating that flag creates another project. When returning to an earlier project in a reused folder, restore the corresponding saved manifest rather than creating another identity.
+- Keep `.yuvabe-project.json` when moving or restoring the same project. It contains the project identity and title, not student credentials. Do not reuse it as the identity of a different project.
+- Project milestone progress and completion are separate from learning-assessment scores. A report does not automatically mark a project completed. Token collection is also separate; never estimate tokens in the assessment.
+
+When a report is justified, run the helper script:
 
 `node "$HOME/.codex/telemetry.js" ...`
 
@@ -199,34 +229,33 @@ The helper script is responsible for:
 
 **REQUIRED COMMAND SHAPE**
 
+This is a template, not an assessment to submit as written. Replace every placeholder with evidence from the current session. The title argument is needed for the first report of a new project; omit it for subsequent reports using the saved manifest.
+
 ```powershell
 node "$HOME/.codex/telemetry.js" `
   --project-root "<actual project directory>" `
   --project-title "<title identified from the student brief and project>" `
-  --trigger manual `
-  --status stuck `
-  --progress 40 `
-  --confidence 62 `
-  --lesson-confidence medium `
-  --path "2 Assignments_/Month 1/Week 1/Day_3_Loops.ipynb" `
-  --gap debugging `
-  --summary "Lesson: loops and iteration. Task: generate the Fibonacci sequence up to the nth term. Assessment: the student corrected the input type issue after guidance and can set up initial variables, but their next attempt still does not update loop state or include the starting terms, so sequence progression logic remains incomplete. Gap: carrying and updating values across iterations is still unclear. Tutor action: reinforce tracing of a and b across one full loop cycle, then ask the student to predict the next three terms before coding." `
-  --cause "understanding input conversion but not loop state updates" `
-  --cause "limited tracing of changing variables inside iterations" `
-  --action "Model one iteration of Fibonacci with a variable table, then have the student update a and b manually before rerunning." `
-  --repeated 2
+  --trigger "<supported trigger>" `
+  --status "<clear, partial, or stuck>" `
+  --progress <observed learning progress from 0 to 100> `
+  --confidence <assessment confidence from 0 to 100> `
+  --lesson-confidence "<high, medium, or low>" `
+  --month <course month> --week <course week> --day <course day> `
+  --summary "<task, observed understanding, difficulties or improvement, and supporting evidence>" `
+  --action "<specific mentor next step>" `
+  --repeated <observed repeated-topic count>
 ```
+
+Add `--gap` and `--cause` only for observed difficulties. For command validation, add `--dry-run`: it does not send a report or create/change the project manifest. A dry run does not count as successful delivery.
 
 **RULES FOR ARGUMENTS**
 
-Use `project_mode: "agent"` without a fixed `project_id`. Preserve `.yuvabe-project.json` for the same project across sessions. New lessons and checkpoints are not new projects. Use `--new-project` only when starting a different project in the same folder, never for a retry. Follow `docs/student-reporting-agents.md` for multi-project identity and enrollment rules.
-
 1. `--path` should point to the current lesson or assignment file when available.
 2. `--repeated` must be a single number count, not a list.
-3. `month/week/day` are course structure values, not the calendar date. If the path already contains them, let the helper infer them.
+3. `month/week/day` are course structure values, not the calendar date. If the path already contains them, let the helper infer them; otherwise pass them explicitly. Ask for missing course context instead of guessing.
 4. `--summary` must be a tutor-facing mini report, not a one-line label.
-5. Include at least one `--gap` and at least one `--cause`.
-6. `--trigger` must be one of: `manual`, `session_end`, `lesson_switch`, `idle_timeout`.
+5. Omit `--gap` and `--cause` when no difficulty is observed. Never invent them for a successful checkpoint.
+6. `--trigger` must be one of: `manual`, `session_end`, `lesson_switch`, `idle_timeout`. Use `manual` for an agent-decided checkpoint or an explicit report request when the other triggers do not apply; that value does not require the student to initiate the report. Do not claim an idle/session-end event without evidence.
 7. `--status` must be one of: `clear`, `partial`, `stuck`.
 8. `--lesson-confidence` must be one of: `high`, `medium`, `low`.
 9. `--gap` must use one of the backend-supported values only:
@@ -237,6 +266,10 @@ Use `project_mode: "agent"` without a fixed `project_id`. Preserve `.yuvabe-proj
    - `tool-usage`: student does not know how to use tools such as Vite, npm, terminal, browser, or editor
    - `assignment-reading`: student does not understand what the task is asking
    - `git-workflow`: commit, branch, push, pull, or repository workflow problems
+
+### Delivery and failures
+
+Check the helper's exit status and response. If run in the background, collect the result before claiming the report was sent. A local export after a failure is not proof of delivery and is not an automatic retry queue. On a retry, preserve the original report date, assessment and project identity. Report a failed submission briefly and continue teaching; do not repeatedly send the same successful checkpoint or run an unbounded retry loop.
 
 ## Execution Checklist
 
@@ -251,7 +284,7 @@ Use `project_mode: "agent"` without a fixed `project_id`. Preserve `.yuvabe-proj
 9. For integration and capstone tasks, avoid full solutions by default and prefer one meaningful checkpoint at a time.
 10. For previously learned concepts, push the student to try first and give structure before full code.
 11. Be honest about what was and was not verified.
-12. Only send telemetry when there is a real tutor-facing checkpoint.
-13. If telemetry is justified, run it first in the background.
+12. Check whether enabled reporting has a real tutor-facing signal, including a meaningful struggle or subsequent improvement. Do not require the student to ask for every report.
+13. If telemetry is justified, use the correct saved project identity, run the helper, and verify its result; a background launch alone is not delivery.
 14. Then respond with a simple teaching-oriented hint or guided explanation.
 15. Before saying a checkpoint is complete, incomplete, next, or remaining, verify those items belong to the current week/day scope.
