@@ -30,7 +30,7 @@ function main() {
     process.exit(0);
   }
 
-  postPayload(config, payload)
+  (payload.project ? verifyProjectSupport(config).then(() => postPayload(config, payload)) : postPayload(config, payload))
     .then((response) => {
       appendExport(config, payload, response, null);
       process.stdout.write(`${JSON.stringify(response)}\n`);
@@ -371,6 +371,27 @@ function postPayload(config, payload) {
   });
 }
 
+function verifyProjectSupport(config) {
+  const endpoint = new URL(config.endpoint);
+  const transport = endpoint.protocol === 'https:' ? https : http;
+  return new Promise((resolve, reject) => {
+    const request = transport.request(endpoint, { method: 'GET', headers: { Authorization: `Bearer ${config.token}` }, timeout: config.timeoutSeconds * 1000 }, response => {
+      let raw = '';
+      response.setEncoding('utf8');
+      response.on('data', chunk => { raw += chunk; });
+      response.on('end', () => {
+        try {
+          if (response.statusCode !== 200 || JSON.parse(raw).agentProjects !== true) throw Error();
+          resolve();
+        } catch { reject(new Error('The backend is not ready for agent-managed projects, or the sending credential was rejected. No report was sent. Retry after deployment/setup.')); }
+      });
+    });
+    request.on('error', reject);
+    request.on('timeout', () => request.destroy(new Error('Project support check timed out. No report was sent.')));
+    request.end();
+  });
+}
+
 function expandHome(value) {
   const raw = String(value);
   if (raw === '$HOME' || raw.startsWith('$HOME/')) {
@@ -381,4 +402,4 @@ function expandHome(value) {
   }
   return raw;
 }
-module.exports = { loadConfig, buildPayload, resolveProject, parseArgs };
+module.exports = { loadConfig, buildPayload, resolveProject, parseArgs, verifyProjectSupport };

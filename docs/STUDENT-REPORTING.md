@@ -10,7 +10,7 @@ The mentor assigns the student ID, student name and batch. The AI coding assista
 4. Add the reporting section from `docs/student-reporting-agents.md` to the student's existing `~/.codex/AGENTS.md`. Preserve their other learning rules. These are instructions to invoke the helper, not a timer/background service.
 5. Have the student complete a real checkpoint, then request its report. Check the student, batch, project title and report in the mentor dashboard. Do not submit synthetic scores as a real learner's assessment.
 
-The existing database schema supports automatic project registration. No new migration is needed. Deploy the updated backend before using agent project reports.
+The existing database schema supports automatic project registration. No new migration is needed. Deploy the updated backend before using agent project reports. The helper checks authenticated backend support before sending and fails without submitting a report if an old deployment is still running.
 
 ## Multiple projects
 

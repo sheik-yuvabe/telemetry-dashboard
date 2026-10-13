@@ -5,6 +5,12 @@ import { parseFeedbackPayload } from "@/lib/types";
 import { validateReportEnrollment } from "@/lib/dashboard-data";
 import { resolveReportProject } from '@/lib/report-project';
 
+export async function GET(request: Request) {
+  const auth = verifyIngestToken(request);
+  if (!auth.ok) return NextResponse.json({ ok: false, message: auth.message }, { status: auth.status, headers: { 'Cache-Control': 'no-store' } });
+  return NextResponse.json({ ok: true, agentProjects: auth.mode === 'protected', protocolVersion: 2 }, { headers: { 'Cache-Control': 'no-store' } });
+}
+
 export async function POST(request: Request) {
   try {
     const authResult = verifyIngestToken(request);

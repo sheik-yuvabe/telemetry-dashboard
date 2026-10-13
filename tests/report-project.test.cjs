@@ -2,14 +2,29 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const http = require('node:http');
 const ts = require('typescript');
 require.extensions['.ts'] = (m, f) => m._compile(ts.transpileModule(fs.readFileSync(f, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText, f);
 const { resolveReportProject } = require('../lib/report-project.ts');
 const { parseFeedbackPayload } = require('../lib/types.ts');
-const { loadConfig, buildPayload, resolveProject } = require('../tools/telemetry.js');
+const { loadConfig, buildPayload, resolveProject, verifyProjectSupport } = require('../tools/telemetry.js');
 const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'mentor-project-test-'));
 const originalFetch = global.fetch;
 async function run() {
+  let supported = false;
+  const server = http.createServer((req, res) => {
+    assert.equal(req.method, 'GET');
+    assert.equal(req.headers.authorization, 'Bearer test-credential');
+    res.writeHead(supported ? 200 : 405, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ agentProjects: supported }));
+  });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  try {
+    const c = { endpoint: `http://127.0.0.1:${server.address().port}/api/feedback`, token: 'test-credential', timeoutSeconds: 2 };
+    await assert.rejects(() => verifyProjectSupport(c), /No report was sent/);
+    supported = true;
+    await verifyProjectSupport(c);
+  } finally { await new Promise(resolve => server.close(resolve)); }
   const config = { batchId: 'batch-2', studentId: 'student-1', studentName: 'Enrolled Learner', projectMode: 'agent' };
   const args = { projectRoot: temp, projectTitle: 'Recipe Planner' };
   const preview = resolveProject({ ...args, dryRun: true }, config);
