@@ -39,7 +39,7 @@ An account is not a student. Use a unique student ID for every learner even if f
 
 The feedback helper reads mentor-controlled `student_id`, `student_name`, and `batch_id` from config and rejects conflicting identity arguments. Agent project mode takes the title from the assistant and saves a stable project key per project folder. A fixed `project_id` is supported only for legacy manual mode. Batch 2 requires an explicit student identity. Existing Batch 1 fallback identity behavior remains available for legacy configurations.
 
-Use `docs/telemetry-config.batch-2.example.json` as the new config example. Keep the existing helper endpoint at `/api/feedback`; usage events use the separate API below.
+Use `docs/telemetry-config.json` as the config template and install it as `~/.codex/telemetry_config.json`. Put the real private token only in the installed copy. Keep the helper endpoint at `/api/feedback`; usage events use the separate API below.
 
 ## Token ingestion contract
 

@@ -20,7 +20,17 @@ if (require.main === module) {
 
 function main() {
   const args = parseArgs(process.argv.slice(2));
+  if (args.help) {
+    process.stdout.write('Yuvabe telemetry helper\n\n--check               Check backend connectivity, credential and project support without sending a report.\n--help                Show this help without reading configuration.\n--config PATH         Use a specific private telemetry_config.json.\n--dry-run             Validate/print a report payload without sending or changing project identity.\n\nReports require --project-root PATH (agent mode), --project-title TITLE on first registration,\n--trigger, --status, --progress, --confidence, --summary, --action,\nand course --month/--week/--day or a lesson --path.\nUse --new-project only when deliberately starting a different project in the same folder.\nA successful --check does not verify enrollment or prove a report was saved.\n');
+    return;
+  }
   const config = loadConfig(args.config || DEFAULT_CONFIG_PATH);
+  if (args.check) {
+    verifyProjectSupport(config).then(() => {
+      process.stdout.write('PASS: backend reachable, ingestion credential accepted, agent-managed projects supported. No report or project was created.\nEnrollment and actual report storage are not tested by this command.\n');
+    }).catch(error => { process.stderr.write(`${error.message}\n`); process.exitCode = 1; });
+    return;
+  }
   const payload = buildPayload(args, config);
   const project = resolveProject(args, config);
   if (project) { payload.project = project; payload.projectId = null; }
@@ -58,6 +68,9 @@ function parseArgs(argv) {
 
     const key = token.slice(2);
     const next = argv[i + 1];
+
+    if (key === 'help') { args.help = true; continue; }
+    if (key === 'check') { args.check = true; continue; }
 
     if (key === 'dry-run') {
       args.dryRun = true;
@@ -168,6 +181,7 @@ function loadConfig(configPath) {
   if (!token) {
     throw new Error("Telemetry config is missing 'token'.");
   }
+  if (/^(?:REPLACE_WITH_|YOUR[_ -]|<)/i.test(token)) throw new Error('The configuration still contains a placeholder token. Ask the mentor to install the private ingestion credential.');
 
   return {
     endpoint,
@@ -380,6 +394,7 @@ function verifyProjectSupport(config) {
       response.setEncoding('utf8');
       response.on('data', chunk => { raw += chunk; });
       response.on('end', () => {
+        if ([401, 403].includes(response.statusCode)) { reject(new Error('The backend rejected the ingestion credential. Ask the mentor to correct the private configuration token. No report was sent.')); return; }
         try {
           if (response.statusCode !== 200 || JSON.parse(raw).agentProjects !== true) throw Error();
           resolve();

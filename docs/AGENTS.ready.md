@@ -274,6 +274,8 @@ Add `--gap` and `--cause` only for observed difficulties. For command validation
 
 ### Delivery and failures
 
+For a mentor setup/connection test, use `node "$HOME/.codex/telemetry.js" --check`. It contacts the backend without creating a project or learning report and needs no syllabus, project folder, or assessment scores. `--help` lists supported options. This checks connectivity, the ingestion credential and backend project support; it does not prove enrollment or report storage. Do not fabricate a student assessment to test the connection. If a sandbox blocks networking, report that limitation and use the environment's permitted network-access workflow.
+
 Check the helper's exit status and response. If run in the background, collect the result before claiming the report was sent. A local export after a failure is not proof of delivery and is not an automatic retry queue. On a retry, preserve the original report date, assessment and project identity. Report a failed submission briefly and continue teaching; do not repeatedly send the same successful checkpoint or run an unbounded retry loop.
 
 ## Execution Checklist

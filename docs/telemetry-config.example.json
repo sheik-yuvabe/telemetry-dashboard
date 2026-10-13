@@ -1,7 +1,0 @@
-{
-  "endpoint": "http://localhost:3000/api/feedback",
-  "token": "REPLACE_WITH_TELEMETRY_INGEST_TOKEN",
-  "timeout_seconds": 10,
-  "student_id": "your_student_id_here",
-  "student_name": "Your Name Here"
-}

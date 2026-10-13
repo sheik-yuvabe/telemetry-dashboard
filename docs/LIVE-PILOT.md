@@ -25,7 +25,7 @@ The check reads required columns and counts without printing student records or 
 
 ## Enroll the pilot students
 
-Use the real names, a distinct student ID for each computer, the shared-account label/capacity, and each student's project. See `BATCH-2-SETUP.md` for enrollment SQL and `docs/telemetry-config.batch-2.example.json` for the per-computer report configuration. Do not use the bundled sample roster as live enrollment.
+Use the real names, a distinct student ID for each learner, and the shared-account label/capacity. The agent identifies each project on its first report. See `BATCH-2-SETUP.md` for enrollment SQL and `docs/telemetry-config.json` for the per-computer report configuration template. Install it as `~/.codex/telemetry_config.json` with that student's enrolled identity and the private token. Do not use the bundled sample roster as live enrollment.
 
 ## Website
 

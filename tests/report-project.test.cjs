@@ -3,6 +3,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const http = require('node:http');
+const execFile = require('node:util').promisify(require('node:child_process').execFile);
 const ts = require('typescript');
 require.extensions['.ts'] = (m, f) => m._compile(ts.transpileModule(fs.readFileSync(f, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText, f);
 const { resolveReportProject } = require('../lib/report-project.ts');
@@ -12,10 +13,11 @@ const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'mentor-project-test-'));
 const originalFetch = global.fetch;
 async function run() {
   let supported = false;
+  let rejected = false;
   const server = http.createServer((req, res) => {
     assert.equal(req.method, 'GET');
     assert.equal(req.headers.authorization, 'Bearer test-credential');
-    res.writeHead(supported ? 200 : 405, { 'Content-Type': 'application/json' });
+    res.writeHead(rejected ? 401 : supported ? 200 : 405, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ agentProjects: supported }));
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
@@ -24,6 +26,20 @@ async function run() {
     await assert.rejects(() => verifyProjectSupport(c), /No report was sent/);
     supported = true;
     await verifyProjectSupport(c);
+    const helperPath = path.resolve(__dirname, '../tools/telemetry.js');
+    const configPath = path.join(temp, 'check-config.json');
+    fs.writeFileSync(configPath, JSON.stringify({ endpoint: c.endpoint, token: c.token, timeout_seconds: 2, export_dir: path.join(temp, 'exports') }));
+    const help = await execFile(process.execPath, [helperPath, '--help', '--config', path.join(temp, 'missing.json')]);
+    assert.match(help.stdout, /--check/);
+    const check = await execFile(process.execPath, [helperPath, '--check', '--config', configPath], { cwd: temp });
+    assert.match(check.stdout, /No report or project was created/);
+    assert.ok(!fs.existsSync(path.join(temp, '.yuvabe-project.json')));
+    assert.ok(!fs.existsSync(path.join(temp, 'exports')));
+    rejected = true;
+    await assert.rejects(() => execFile(process.execPath, [helperPath, '--check', '--config', configPath]), error => error.code === 1 && /rejected the ingestion credential/.test(error.stderr) && !error.stderr.includes(c.token));
+    rejected = false;
+    fs.writeFileSync(configPath, JSON.stringify({ endpoint: c.endpoint, token: 'REPLACE_WITH_TELEMETRY_INGEST_TOKEN' }));
+    assert.throws(() => loadConfig(configPath), /placeholder token/);
   } finally { await new Promise(resolve => server.close(resolve)); }
   const config = { batchId: 'batch-2', studentId: 'student-1', studentName: 'Enrolled Learner', projectMode: 'agent' };
   const args = { projectRoot: temp, projectTitle: 'Recipe Planner' };

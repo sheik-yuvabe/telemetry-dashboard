@@ -3,8 +3,8 @@
   "token": "REPLACE_WITH_TELEMETRY_INGEST_TOKEN",
   "timeout_seconds": 10,
   "batch_id": "batch-2",
-  "student_id": "student-001",
-  "student_name": "Student One",
+  "student_id": "sheiknoorullah@gmail.com",
+  "student_name": "Sheik Noorullah",
   "project_mode": "agent",
   "reporting_enabled": true
 }
