@@ -2,6 +2,8 @@
 
 Updated 2026-10-10. Confirmed operating setup: every student uses a separate computer; 2–4 students may share the same provider account.
 
+Update 2026-10-21: a [Windows VS Code pilot collector](../tools/usage-collector/README.md) now implements local counter parsing, automatic project discovery, durable retry state and scheduled setup. Local tests pass and the test computer's scheduled run succeeded for Batch 2 Account 1; fresh student usage delivery remains to be tested. Its coverage is explicitly partial (primary sessions, with initial/ambiguous baselines excluded). The design below still describes the requirements for complete production collection, including scoped device credentials and child-session reconciliation.
+
 ## What a batch means
 
 A batch is an explicit enrollment group, not a calculated token metric or an app version. Create a stable record such as `batch-2` with the display name `Batch 2`, then enroll students into it. A student's reports, projects, and usage carry that batch ID. Creating Batch 3 must not move old records out of Batch 2.

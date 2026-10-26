@@ -626,6 +626,12 @@ class StudentHistoryPageState extends State<StudentHistoryPage> {
                       ]),
                     if (loading) const LinearProgressIndicator(),
                     if (overview != null) ...[
+                      if (records(overview['usage']).any(
+                        (event) => event['source'] == 'codex-vscode-primary-local-v1',
+                      ))
+                        card('Partial token coverage', [
+                          const Text('Primary VS Code sessions only. Initial baselines, ambiguous project intervals and separate child sessions are excluded.'),
+                        ]),
                       if (tab == 0) ...[
                         card('Recorded overview', [
                           Wrap(

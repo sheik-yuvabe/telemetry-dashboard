@@ -542,6 +542,12 @@ class _MentorHomeState extends State<MentorHome> {
           text:
               'Sample data: these names, projects, and token counts demonstrate the workspace. They are not real student usage.',
         ),
+      if (data!.eventsIn(batch, through: through, days: days).any(
+        (event) => event['source'] == 'codex-vscode-primary-local-v1',
+      ))
+        const Notice(
+          text: 'Partial token coverage: primary VS Code sessions only. Initial baselines, ambiguous project intervals and separate child sessions are excluded. Recorded totals are not complete account consumption.',
+        ),
       if (data!.setupRequired)
         const Notice(
           text:

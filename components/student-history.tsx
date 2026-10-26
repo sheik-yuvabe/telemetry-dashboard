@@ -85,6 +85,7 @@ export function StudentHistory({ studentId, batchId, demo }: { studentId: string
       {error && <div className="notice" role="alert">{error}<button onClick={() => setReload(x => x + 1)}>Retry</button></div>}
       {busy && <p role="status">Loading reports…</p>}
       {overview && data && <>
+        {overview.usage.some(event => event.source === "codex-vscode-primary-local-v1") && <div className="notice neutral">Partial token coverage: primary VS Code sessions only. Initial baselines, ambiguous project intervals and separate child sessions are excluded.</div>}
       {tab === "Overview" && <>
         <div className="metric-grid">{[[overview.reportCount, "Reports"], [overview.reportDays, "Days with reports"], [overview.latestStatus || "Not assessed", "Latest reported status"], [overview.tokenTotal === null ? "Not recorded" : overview.tokenTotal.toLocaleString(), "Measured tokens"]].map(([value, label]) => <article key={label} className="metric"><div>{label}</div><strong>{value}</strong></article>)}</div>
         <p className="history-caption">{overview.firstDate ? `Reports from ${overview.firstDate} through ${overview.lastDate}.` : "No reports in this scope."} Missing reports do not establish attendance. Tokens use date/project filters, independent of lesson/status filters.</p>
