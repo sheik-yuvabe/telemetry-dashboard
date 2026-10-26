@@ -37,9 +37,33 @@ Open PowerShell and run:
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$HOME\.codex\usage-collector\install.ps1" -AccountId "batch-2-account-1"
 ```
 
+Or run in **Command Prompt (CMD)**:
+
+```cmd
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%USERPROFILE%\.codex\usage-collector\install.ps1" -AccountId "batch-2-account-1"
+```
+
+Use either command, not both. CMD still runs the PowerShell installer; it does not bypass errors inside the installer.
+
 Expected: **Enrollment created** (or **Enrollment already correct**), then **Installed in...**, with no error. The student now appears in Batch 2 on the dashboard, even before their first report. Windows runs the collector silently every minute while the student is signed in. No daily command is needed.
 
 If enrollment fails, stop and correct the error. Rerunning the installer does not duplicate the student or overwrite conflicting details. This creates a roster record, not a student login.
+
+On a new computer, `waitingForSessions: true` is normal until session files appear. Installation still completes. If an older collector fails with `ENOENT` for `.codex\sessions`, replace `collector.js` with the latest copy and rerun the same install command. Keep your config and state files.
+
+Quick fix for that missing-folder error: create the folder, then rerun installation.
+
+**PowerShell:**
+
+```powershell
+New-Item -ItemType Directory -Path "$HOME\.codex\sessions" -Force
+```
+
+**CMD:**
+
+```cmd
+if not exist "%USERPROFILE%\.codex\sessions" mkdir "%USERPROFILE%\.codex\sessions"
+```
 
 ## 4. Do real project work
 
@@ -56,6 +80,12 @@ Run in PowerShell:
 node "$HOME\.codex\usage-collector\collector.js" --status
 ```
 
+**CMD:**
+
+```cmd
+node "%USERPROFILE%\.codex\usage-collector\collector.js" --status
+```
+
 Success: `uploaded` is above 0, `lastSuccess` has a time, `pending` is 0 and `lastError` is null.
 
 Open **https://aipbc.vercel.app/**, sign in, then choose **Batch 2 → student → Usage**. Include today in the date filter. Confirm tokens appear for the correct project.
@@ -66,6 +96,12 @@ Read the latest error:
 
 ```powershell
 Get-Content "$HOME\.codex\usage-collector\last-run.log"
+```
+
+**CMD:**
+
+```cmd
+type "%USERPROFILE%\.codex\usage-collector\last-run.log"
 ```
 
 Send the mentor the error and status output—not the private config. `heldForReview` means some usage could not be safely linked to a project; it was not uploaded. Do not delete state to retry.

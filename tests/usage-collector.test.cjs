@@ -3,6 +3,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const http = require('node:http');
+const { spawnSync } = require('node:child_process');
 const { run, loadConfig, counters, hash, discoverProjectRoot } = require('../tools/usage-collector/collector');
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'yuvabe-collector-test-'));
 const project = path.join(root,'student-project'), sessions = path.join(root,'sessions'), stateDir = path.join(root,'state');
@@ -122,6 +123,38 @@ async function test() {
   const autoState=JSON.parse(fs.readFileSync(path.join(auto.stateDir,'state.json')));
   assert.ok(autoState.held.some(item=>item.event.sessionId==='unknown'));
   assert.equal(discoverProjectRoot(os.homedir()),null);
+  // Fresh installation: no sessions directory yet. Validation must not create it.
+  const freshConfig=path.join(root,'fresh-config.json');
+  const freshSessions=path.join(root,'fresh-codex','sessions'),freshState=path.join(root,'fresh-state');
+  write(freshConfig,{enabled:true,telemetry_config:mentor,account_id:'shared-1',started_at:when(300),sessions_dir:freshSessions,state_dir:freshState,discovery:'auto'});
+  const validation=spawnSync(process.execPath,[path.resolve(__dirname,'../tools/usage-collector/collector.js'),'--config',freshConfig,'--dry-run'],{encoding:'utf8'});
+  assert.equal(validation.status,0,validation.stderr);
+  assert.equal(JSON.parse(validation.stdout).waitingForSessions,true);
+  assert.ok(!fs.existsSync(freshSessions));assert.ok(!fs.existsSync(freshState));
+  const requestsBeforeWaiting=requests;
+  const waiting=await run(loadConfig(freshConfig),{now:when(300)});
+  assert.equal(waiting.waitingForSessions,true);assert.equal(waiting.lastError,null);
+  assert.equal(waiting.pending,0);assert.equal(requests,requestsBeforeWaiting);
+  const waitingState=JSON.parse(fs.readFileSync(path.join(freshState,'state.json')));
+  fs.mkdirSync(freshSessions,{recursive:true});
+  assert.equal((await run(loadConfig(freshConfig),{now:when(301)})).waitingForSessions,false);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(freshState,'state.json'))).identity,waitingState.identity);
+  const freshLog=path.join(freshSessions,'first.jsonl');
+  append([meta('fresh','vscode',courseProject),usage(302,100,10)],freshLog);
+  await run(loadConfig(freshConfig),{now:when(303)});
+  append([usage(304,200,20),usage(305,250,25)],freshLog);
+  await run(loadConfig(freshConfig),{now:when(306)});
+  const freshEvents=[...received.values()].filter(e=>e.sessionId==='fresh');
+  assert.equal(freshEvents.length,1);assert.equal(freshEvents[0].inputTokens,50);assert.equal(freshEvents[0].outputTokens,5);
+  // Other filesystem errors must still fail visibly, not look like an idle collector.
+  const notDirectory=path.join(root,'not-a-directory');fs.writeFileSync(notDirectory,'test');
+  await assert.rejects(run({...loadConfig(freshConfig),sessionsDir:notDirectory,stateDir:path.join(root,'invalid-state')},{dryRun:true}),e=>e.code==='ENOTDIR');
+  const originalReadDir=fs.readdirSync;
+  try {
+    fs.readdirSync=()=>{throw Object.assign(new Error('Access denied'),{code:'EACCES'});};
+    await assert.rejects(run(loadConfig(freshConfig),{dryRun:true}),e=>e.code==='EACCES');
+  } finally {fs.readdirSync=originalReadDir;}
+  console.log('PASS: installation before first session, dry-run without writes, idle status, stable identity and automatic collection when sessions appear; filesystem errors remain visible.');
   console.log('PASS: automatic discovery without folder lists, independent project folders, nested working directories, renamed/moved identity, repository boundaries and local retention of unidentified usage.');
   console.log('PASS: local HTTP upload, baseline, input/output/cache deltas, offline retry, crash replay, deduplication, resumed files, midnight timestamps, project isolation/switch, child exclusion, partial records, privacy, identity guard, lock and counter resets.');
 }

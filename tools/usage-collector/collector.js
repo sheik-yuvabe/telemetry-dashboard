@@ -9,7 +9,17 @@ const DEFAULT_CONFIG = path.join(os.homedir(), '.codex', 'usage-collector', 'con
 const hash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const json = file => JSON.parse(fs.readFileSync(file, 'utf8').replace(/^\uFEFF/, ''));
 const stamp = value => typeof value === 'string' && /(?:Z|[+-]\d\d:\d\d)$/.test(value) && Number.isFinite(Date.parse(value));
-const canonical = value => { const p = fs.realpathSync(value); return process.platform === 'win32' ? p.toLowerCase() : p; };
+function canonical(value, allowMissing = false) {
+  let p;
+  try { p = fs.realpathSync(value); }
+  catch (e) {
+    if (!allowMissing || e.code !== 'ENOENT') throw e;
+    const absolute = path.resolve(value), parent = path.dirname(absolute);
+    if (parent === absolute) throw e;
+    p = path.join(canonical(parent, true), path.basename(absolute));
+  }
+  return process.platform === 'win32' ? p.toLowerCase() : p;
+}
 function within(root, value) {
   const rel = path.relative(root, value);
   return rel === '' || (rel !== '..' && !rel.startsWith(`..${path.sep}`) && !path.isAbsolute(rel));
@@ -31,20 +41,26 @@ function loadConfig(file = DEFAULT_CONFIG) {
   const discovery = c.discovery || (c.project_roots?.length ? 'folders' : 'auto');
   if (!['auto','folders'].includes(discovery)) throw Error('Unknown project discovery mode.');
   if (discovery === 'folders' && (!Array.isArray(c.project_roots) || !c.project_roots.length)) throw Error('Select at least one student project folder.');
-  const roots = discovery === 'auto' ? [] : [...new Set(c.project_roots.map(canonical))].sort((a,b) => b.length-a.length);
+  const roots = discovery === 'auto' ? [] : [...new Set(c.project_roots.map(root => canonical(root)))].sort((a,b) => b.length-a.length);
   const url = new URL('/api/usage', mentor.endpoint);
   if (url.username || url.password || !(url.protocol === 'https:' || (url.protocol === 'http:' && ['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname)))) throw Error('Usage requires HTTPS (HTTP allowed only on localhost for tests).');
   return { endpoint: url.href, token: mentor.token, studentId: mentor.student_id, batchId: mentor.batch_id,
     accountId: c.account_id.trim(), startedAt: new Date(c.started_at).toISOString(), roots, discovery,
-    sessionsDir: canonical(c.sessions_dir || path.join(os.homedir(), '.codex', 'sessions')),
+    sessionsDir: canonical(c.sessions_dir || path.join(os.homedir(), '.codex', 'sessions'), true),
     stateDir: path.resolve(c.state_dir || path.join(path.dirname(file), 'state')) };
 }
 function identity(c) { return hash([c.endpoint, c.studentId, c.batchId, c.accountId, c.startedAt, c.sessionsDir]); }
 function initialState(c) {
   return { version: 1, identity: identity(c), files: {}, sessions: {}, projects: {}, held: [], queue: [], uploaded: 0, lastSuccess: null, lastError: null };
 }
-function filesIn(dir) {
-  return fs.readdirSync(dir, { withFileTypes: true }).flatMap(e => e.isDirectory() ? filesIn(path.join(dir,e.name)) : e.isFile() && e.name.endsWith('.jsonl') ? [path.join(dir,e.name)] : []);
+function filesIn(dir, allowMissing = false) {
+  let entries;
+  try { entries = fs.readdirSync(dir, { withFileTypes: true }); }
+  catch (e) {
+    if (allowMissing && e.code === 'ENOENT') return null;
+    throw e;
+  }
+  return entries.flatMap(e => e.isDirectory() ? filesIn(path.join(dir,e.name)) : e.isFile() && e.name.endsWith('.jsonl') ? [path.join(dir,e.name)] : []);
 }
 function counters(info) {
   const t = info?.total_token_usage;
@@ -172,7 +188,9 @@ async function run(c, { dryRun = false, fetchImpl = fetch, now = new Date().toIS
     const d = { newEvents: 0, projectBaselines: 0, sessionBaselines: 0, missingManifests: 0, partialRecords: 0, counterResets: 0, blockedSnapshots: 0, unmappedSnapshots: 0 };
     state.held ||= [];
     const snapshots = [];
-    for (const f of filesIn(c.sessionsDir)) {
+    const sessionFiles = filesIn(c.sessionsDir, true);
+    d.waitingForSessions = sessionFiles === null;
+    for (const f of sessionFiles || []) {
       if (!state.files[f] && fs.statSync(f).mtimeMs < Date.parse(c.startedAt)) continue;
       const cursor = state.files[f] || (state.files[f] = { offset: 0 });
       for (const snapshot of await readNew(f,cursor,d)) snapshots.push(snapshot);

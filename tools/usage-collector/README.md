@@ -29,6 +29,8 @@ First, the installer runs `enroll.js` using the private upload key and mentor-co
 
 After enrollment succeeds, the installer copies `collector.js`, `enroll.js`, `run.ps1` and `launch-hidden.vbs` to `$HOME/.codex/usage-collector`, creates its private local `config.json`, checks a dry run, and registers `Yuvabe-Usage-Collector` in Windows Task Scheduler. It runs on sign-in and every minute while the user is signed in. The task uses the windowless `wscript.exe` host to launch PowerShell hidden from the outset; the runner also sets `CreateNoWindow` for Node. Launching PowerShell directly with only `-WindowStyle Hidden` could briefly flash a console before hiding it. It can run on battery. Students do not ask the AI to start it.
 
+A fresh computer may not have `.codex/sessions` yet. The collector reports `waitingForSessions: true` and allows installation to finish. It checks again on the next scheduled run and starts reading when the folder appears. Dry runs do not create the folder or state. Permission errors and invalid paths still fail visibly.
+
 ### Why projects have an identity file
 
 `.yuvabe-project.json` contains a stable project key and title, not credentials or student identity. It belongs in the actual project root, not `.codex`, not each source subfolder, and not a shared parent of unrelated projects. The existing telemetry helper creates it when the agent submits the first genuine learning report for that project. Students do not need to create it manually. Preserve it when moving/renaming the project so later reports and usage retain their identity. Before that file exists, unmatched usage stays local; it is not silently assigned to another project.
